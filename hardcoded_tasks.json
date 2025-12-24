@@ -1,0 +1,270 @@
+[
+    {
+        "id": 1,
+        "name": "奶奶饭",
+        "startDate": "2025-10-14",
+        "startTime": "00:35",
+        "displayThreshold": 10,
+        "displayThresholdUnit": "minute",
+        "priority": "medium",
+        "duration": 10,
+        "durationUnit": "minute",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "hour",
+            "duration": 10,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 2,
+        "name": "圣岛 海龟",
+        "startDate": "2025-10-14",
+        "startTime": "00:50",
+        "displayThreshold": 10,
+        "displayThresholdUnit": "minute",
+        "priority": "medium",
+        "duration": 10,
+        "durationUnit": "minute",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "hour",
+            "duration": 10,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 3,
+        "name": "破晓 红石",
+        "startDate": "2025-10-14",
+        "startTime": "07:48",
+        "displayThreshold": 2,
+        "displayThresholdUnit": "hour",
+        "priority": "high",
+        "recurrence": {
+            "type": "custom_complex",
+            "pattern": "dawn_redstone",
+            "duration": 232,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 4,
+        "name": "每日 重置",
+        "startDate": "2025-10-14",
+        "startTime": "00:00",
+        "displayThreshold": 60,
+        "displayThresholdUnit": "minute",
+        "priority": "high",
+        "duration": 5,
+        "durationUnit": "minute",
+        "recurrence": {
+            "type": "daily",
+            "duration": 5,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 5,
+        "name": "献祭 重置",
+        "startDate": "2025-10-14",
+        "startTime": "00:00",
+        "displayThreshold": 1,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "weekly",
+            "weekdays": [0],
+            "duration": 1,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 6,
+        "name": "复刻 公布",
+        "startDate": "2025-10-18",
+        "startTime": "11:00",
+        "displayThreshold": 12,
+        "displayThresholdUnit": "hour",
+        "priority": "low",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "week",
+            "duration": 1,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 7,
+        "name": "先祖复刻",
+        "startDate": "2025-10-09",
+        "startTime": "00:00",
+        "displayThreshold": 1,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "week",
+            "duration": 4,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 8,
+        "name": "家具 轮换",
+        "startDate": "2025-10-14",
+        "startTime": "00:00",
+        "displayThreshold": 1,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "weekly",
+            "weekdays": [1],
+            "duration": 1,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 9,
+        "name": "染料商店",
+        "startDate": "2025-10-14",
+        "startTime": "00:00",
+        "displayThreshold": 1,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "weekly",
+            "weekdays": [1],
+            "duration": 1,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 10,
+        "name": "AURORA",
+        "startDate": "2025-10-14",
+        "startTime": "00:10",
+        "displayThreshold": 10,
+        "displayThresholdUnit": "minute",
+        "priority": "low",
+        "duration": 10,
+        "durationUnit": "minute",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "hour",
+            "duration": 50,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 11,
+        "name": "空间站",
+        "startDate": "2025-10-14",
+        "startTime": "00:00",
+        "displayThreshold": 1,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "weekly",
+            "weekdays": [4],
+            "duration": 1,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 12,
+        "name": "烟花大会",
+        "startDate": "2025-12-01",
+        "startTime": "00:00",
+        "displayThreshold": 3,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "monthly_times",
+            "days": [2],
+            "customTimes": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"],
+            "duration": 20,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 13,
+        "name": "间歇泉",
+        "startDate": "2025-10-14",
+        "startTime": "00:05",
+        "displayThreshold": 10,
+        "displayThresholdUnit": "minute",
+        "priority": "medium",
+        "duration": 10,
+        "durationUnit": "minute",
+        "recurrence": {
+            "type": "custom",
+            "count": 2,
+            "unit": "hour",
+            "duration": 10,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 14,
+        "name": "圆梦 滑冰",
+        "startDate": "2025-10-14",
+        "startTime": "10:00",
+        "displayThreshold": 15,
+        "displayThresholdUnit": "minute",
+        "priority": "none",
+        "recurrence": {
+            "type": "custom_complex",
+            "pattern": "dream_skating",
+            "duration": 15,
+            "durationUnit": "minute"
+        }
+    },
+    {
+        "id": 21,
+        "name": "迁徙季",
+        "startDate": "2025-10-20",
+        "startTime": "00:00",
+        "displayThreshold": 3,
+        "displayThresholdUnit": "day",
+        "priority": "none",
+        "recurrence": {
+            "type": "none",
+            "duration": 77,
+            "durationUnit": "day"
+        }
+    },
+    {
+        "id": 22,
+        "name": "万圣节",
+        "startDate": "2025-10-27",
+        "startTime": "00:00",
+        "displayThreshold": 3,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "none",
+            "duration": 3,
+            "durationUnit": "week"
+        }
+    },
+    {
+        "id": 23,
+        "name": "集体 复刻",
+        "startDate": "2025-11-17",
+        "startTime": "00:00",
+        "displayThreshold": 3,
+        "displayThresholdUnit": "day",
+        "priority": "low",
+        "recurrence": {
+            "type": "none",
+            "duration": 2,
+            "durationUnit": "week"
+        }
+    }
+]

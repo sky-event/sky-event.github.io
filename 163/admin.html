@@ -1,0 +1,3295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光·遇 事件 管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="./libs/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+    <script src="./libs/@supabase/supabase-js/dist/umd/supabase.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        priority: {
+                            high: '#ef4444',
+                            medium: '#f59e0b',
+                            low: '#10b981',
+                            none: '#64748b'
+                        },
+                        primary: '#60a5fa',
+                        secondary: '#94a3b8',
+                        dark: {
+                            bg: '#1e293b',
+                            card: '#334155',
+                            hover: '#475569',
+                            text: '#f8fafc',
+                            textSecondary: '#cbd5e1'
+                        }
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .task-transition {
+                transition: all 0.5s ease-in-out;
+            }
+            .hover-expand {
+                transition: max-height 0.5s ease-in-out;
+            }
+            .context-menu {
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+            .modal-backdrop {
+                backdrop-filter: blur(2px);
+            }
+            .app-compact {
+                padding: 1.5rem;
+                min-height: auto !important;
+                width: auto !important;
+                max-width: 280px;
+            }
+            .app-expanded {
+                padding: 2rem;
+                width: auto !important;
+                max-width: 520px;
+            }
+            .task-item {
+                cursor: pointer;
+            }
+            .day-checkbox {
+                width: 1.5rem;
+                height: 1.5rem;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .day-checkbox {
+                @apply w-8 h-8 flex items-center justify-center rounded-lg transition-all;
+            }
+            .recurrence-option {
+                @apply p-2 border border-gray-600 rounded-lg cursor-pointer transition-all hover:border-primary;
+            }
+            .recurrence-option.selected {
+                @apply border-primary bg-primary/10;
+            }
+            .ongoing-indicator {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.6; }
+                100% { opacity: 1; }
+            }
+            .time-input-group {
+                @apply flex items-center gap-3;
+            }
+            .time-input {
+                @apply min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-card text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+            }
+            .time-select {
+                @apply flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-card text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+            }
+            .countdown {
+                @apply text-xs font-medium px-2 py-0.5 rounded-lg bg-primary/10 text-primary;
+            }
+            /* 排序样式 */
+            .sortable {
+                cursor: pointer;
+                user-select: none;
+                position: relative;
+            }
+            .sortable:hover {
+                background-color: rgba(0, 0, 0, 0.1);
+            }
+            .notification {
+                @apply fixed top-4 right-4 bg-primary text-white px-4 py-2 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full;
+            }
+            .notification.show {
+                @apply translate-x-0;
+            }
+            .notification.error {
+                @apply bg-red-500;
+            }
+            .login-container {
+                @apply flex items-center justify-center min-h-screen bg-dark-bg;
+            }
+            .login-container.hidden {
+                display: none !important;
+            }
+            .hidden {
+                display: none !important;
+            }
+            .login-card {
+                @apply bg-dark-card rounded-2xl shadow-xl p-8 max-w-md w-full border border-gray-700;
+            }
+            .admin-container {
+                @apply p-6 max-w-7xl mx-auto;
+            }
+            .data-table {
+                @apply w-full bg-dark-card rounded-xl shadow-lg border border-gray-700 overflow-hidden;
+            }
+            .data-table th {
+                @apply bg-dark-hover text-left py-2 px-4 text-sm font-semibold text-dark-textSecondary;
+            }
+            .data-table td {
+                @apply py-2 px-4 text-sm border-t border-gray-700;
+            }
+            .action-btn {
+                @apply p-2 rounded-lg text-sm transition-colors;
+            }
+            .edit-btn {
+                @apply text-primary hover:bg-primary/10;
+            }
+            /* 状态样式 */
+            .status-ongoing {
+                background-color: var(--ongoing-color, #10b981);
+            }
+            .status-not-started {
+                background-color: var(--upcoming-color, #60a5fa);
+            }
+            .status-ended {
+                background-color: var(--completed-color, #64748b);
+            }
+            .delete-btn {
+                @apply text-red-500 hover:bg-red-500/10;
+            }
+            .save-btn {
+                @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors;
+            }
+            .cancel-btn {
+                @apply bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors;
+            }
+        }
+    </style>
+    
+    <!-- 主题变量定义 -->
+    <style>
+        :root {
+            /* 暗黑主题变量 */
+            --bg-color: #1e293b;
+            --card-color: #334155;
+            --card-alt-color: #2d3748;
+            --text-color: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --hover-color: #475569;
+            --border-color: #4b5563;
+            --primary-color: #60a5fa;
+            --priority-high: #ef4444;
+            --priority-medium: #f59e0b;
+            --priority-low: #10b981;
+            --priority-none: #64748b;
+            --ongoing-color: #10b981;
+            --upcoming-color: #3b82f6;
+            --completed-color: #64748b;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f5f5;
+            --card-color: #ffffff;
+            --card-alt-color: #f8fafc;
+            --text-color: #1e293b;
+            --text-secondary: #64748b;
+            --hover-color: #f1f5f9;
+            --border-color: #e2e8f0;
+            --primary-color: #3b82f6;
+            --priority-high: #dc2626;
+            --priority-medium: #d97706;
+            --priority-low: #059669;
+            --priority-none: #6b7280;
+            --ongoing-color: #059669;
+            --upcoming-color: #3b82f6;
+            --completed-color: #6b7280;
+        }
+
+        /* 应用主题变量 */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .bg-dark-bg {
+            background-color: var(--bg-color) !important;
+        }
+
+        .bg-dark-card {
+            background-color: var(--card-color) !important;
+        }
+
+        .bg-dark-card-alt {
+            background-color: var(--card-alt-color) !important;
+        }
+
+        .text-dark-text {
+            color: var(--text-color) !important;
+        }
+
+        .text-dark-textSecondary {
+            color: var(--text-secondary) !important;
+        }
+
+        .bg-dark-hover:hover {
+            background-color: var(--hover-color) !important;
+        }
+
+        .border-gray-700 {
+            border-color: var(--border-color) !important;
+        }
+
+        /* 管理容器样式 */
+        .admin-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 表格样式优化 */
+        table {
+            width: 100%;
+        }
+        
+        .data-table {
+            overflow-x: auto;
+        }
+        
+        /* 优先级标签样式 */
+        .priority-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .priority-high {
+            background-color: var(--priority-high);
+            color: white;
+        }
+        
+        .priority-medium {
+            background-color: var(--priority-medium);
+            color: white;
+        }
+        
+        .priority-low {
+            background-color: var(--priority-low);
+            color: white;
+        }
+        
+        .priority-none {
+            background-color: var(--priority-none);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-dark-bg min-h-screen">
+    <!-- 登录界面 -->
+    <div id="login-container" class="login-container">
+        <div class="login-card">
+            <div class="flex justify-center mb-4">
+                <img src="icons/163-logo.png" alt="Sky Admin Logo" class="w-24 h-24 object-contain">
+            </div>
+            <h2 class="text-2xl font-bold text-center mb-6 text-dark-text">事件 管理 </h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <input type="password" id="password" name="password" required placeholder="密码" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition-colors">
+                    登录
+                </button>
+            </form>
+            <p id="login-error" class="mt-4 text-center text-red-500 text-sm hidden">密码错误</p>
+        </div>
+    </div>
+    
+    <!-- 管理后台界面 -->
+    <div id="admin-container" class="admin-container hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <a href="163/admin.html" class="p-2 rounded-lg transition-colors" title="切换到光遇管理">
+                    <img src="icons/163-logo.png" alt="切换到光遇管理" style="width: 48px; height: 48px; object-fit: contain;">
+                </a>
+                <h1 class="text-2xl font-bold text-dark-text">事件 管理</h1>
+            </div>
+            <div class="flex gap-3">
+                <button id="add-task-btn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                    <i class="fa fa-plus"></i>
+                    添加事件
+                </button>
+                <button id="logout-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    退出
+                </button>
+            </div>
+        </div>
+        
+        <!-- 数据表格 -->
+        <div class="data-table mb-6">
+            <table class="w-full border-collapse">
+                <thead class="bg-dark-card/50">
+                    <tr>
+                        <th class="py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;">序号</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="id">ID</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="name">事件名称</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="priority">优先级</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="startDate">开始时间</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="duration">持续时间</th>
+                        <th class="py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;">地点</th>
+                        <th class="sortable py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;" data-sort-key="displayThreshold">显示阈值</th>
+                        <th class="py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;">重复类型</th>
+                        <th class="py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;">状态</th>
+                        <th class="py-2 px-4 text-center text-dark-textSecondary font-medium text-sm" style="text-align: center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tasks-table-body">
+                    <!-- 数据将通过JavaScript动态生成 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑事件模态框 -->
+    <div id="task-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="modal-backdrop absolute inset-0 bg-black bg-opacity-60"></div>
+        <div class="bg-dark-card rounded-xl shadow-xl p-6 w-full max-w-2xl relative z-10 transform transition-all border border-gray-700 modal-content mx-auto flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-lg font-semibold text-dark-text">添加新事件</h3>
+                <button id="close-modal" class="text-dark-textSecondary hover:text-dark-text">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="task-form" class="flex-1 overflow-y-auto">
+                <input type="hidden" id="task-id">
+                
+                <div class="mb-4">
+                    <label for="task-name" class="block text-sm font-medium text-dark-textSecondary mb-1">事件名称</label>
+                    <input type="text" id="task-name" name="task-name" required class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <!-- 优先级 -->
+                    <div class="bg-dark-bg p-3 rounded-lg border border-gray-600">
+                        <label for="task-priority" class="block text-sm font-medium text-dark-textSecondary mb-1">优先级</label>
+                        <select id="task-priority" name="task-priority" required class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="high">高 (红色)</option>
+                            <option value="medium" selected>中 (黄色)</option>
+                            <option value="low">低 (绿色)</option>
+                            <option value="none">无 (灰色)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 提前提醒时间 -->
+                    <div class="bg-dark-bg p-3 rounded-lg border border-gray-600">
+                        <label for="display-threshold" class="block text-sm font-medium text-dark-textSecondary mb-1">提前提醒时间</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="display-threshold" name="display-threshold" min="1" value="10" class="px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <select id="display-threshold-unit" name="display-threshold-unit" class="px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                                <option value="week">周</option>
+                                <option value="month">月</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- 持续时间 -->
+                    <div class="bg-dark-bg p-3 rounded-lg border border-gray-600">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-1">持续时间</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="task-duration" name="duration" min="0" value="60" class="px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <select id="duration-unit" name="duration-unit" class="px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                                <option value="week">周</option>
+                                <option value="month">月</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">重复方式</label>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="recurrence-option selected" data-type="none">
+                            <div class="font-medium">不重复</div>
+                            <div class="text-xs text-dark-textSecondary">仅一次</div>
+                        </div>
+                        <div class="recurrence-option" data-type="daily">
+                            <div class="font-medium">每天</div>
+                            <div class="text-xs text-dark-textSecondary">每天同一时间</div>
+                        </div>
+                        <div class="recurrence-option" data-type="weekly">
+                            <div class="font-medium">每周</div>
+                            <div class="text-xs text-dark-textSecondary">每周特定日期</div>
+                        </div>
+                        <div class="recurrence-option" data-type="monthly">
+                            <div class="font-medium">每月</div>
+                            <div class="text-xs text-dark-textSecondary">每月特定日期</div>
+                        </div>
+                        <div class="recurrence-option" data-type="interval">
+                            <div class="font-medium">间隔</div>
+                            <div class="text-xs text-dark-textSecondary">按固定间隔重复</div>
+                        </div>
+                        <div class="recurrence-option" data-type="monthly_interval">
+                            <div class="font-medium">每月+间隔</div>
+                            <div class="text-xs text-dark-textSecondary">每月特定日期内按间隔重复</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="recurrence-type" value="none">
+                </div>
+                
+                <!-- 不重复选项 -->
+                <div id="none-options" class="mb-4 bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">开始时间</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <input type="date" id="none-start-date" name="start-date" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <input type="time" id="none-start-time" name="start-time" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 每天重复选项 -->
+                <div id="daily-options" class="mb-4 hidden bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">开始日期</label>
+                    <div>
+                        <input type="date" id="daily-start-date" name="daily-start-date" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-2">
+                    </div>
+                    
+                    <!-- 重复类型选择 -->
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">重复类型</label>
+                    <select id="daily-repeat-type" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-2">
+                        <option value="time-points">特定时间点</option>
+                        <option value="time-range">时间段</option>
+                    </select>
+                    
+                    <!-- 时间点重复选项 -->
+                    <div id="daily-time-points">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">每日特定时间点 (最少有一个)</label>
+                        <div id="daily-times-container" class="space-y-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <input type="time" name="daily-time-0" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-time-input" placeholder="--:--">
+                                <button type="button" onclick="removeTimeInput('daily', 0)" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" id="add-daily-time-btn" class="w-full px-3 py-2 border border-dashed border-gray-600 rounded-lg text-dark-textSecondary hover:bg-dark-hover transition-colors flex items-center justify-center">
+                            <i class="fa fa-plus mr-2"></i>添加时间点
+                        </button>
+                        <p class="text-xs text-primary mt-1">每天在这些时间点重复事件</p>
+                    </div>
+                    
+                    <!-- 时间段重复选项 -->
+                    <div id="daily-time-range" class="hidden">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">时间段</label>
+                        <div class="flex gap-2 mb-2">
+                            <input type="time" id="daily-range-start" name="daily-range-start" class="w-1/2 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="开始时间">
+                            <span class="flex items-center">-</span>
+                            <input type="time" id="daily-range-end" name="daily-range-end" class="w-1/2 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="结束时间">
+                        </div>
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">间隔</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="daily-range-interval" name="daily-range-interval" min="1" value="1" class="w-1/3 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <select id="daily-range-unit" name="daily-range-unit" class="w-2/3 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="minute">分钟</option>
+                                <option value="hour" selected>小时</option>
+                                <option value="day">天</option>
+                            </select>
+                        </div>
+                        <p class="text-xs text-primary mt-1">每天在指定时间段内按间隔重复事件</p>
+                    </div>
+                </div>
+
+                <!-- 每周重复选项 -->
+                <div id="weekly-options" class="mb-4 hidden bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">开始时间</label>
+                    <div class="grid grid-cols-2 gap-3 mb-2">
+                        <div>
+                            <input type="date" id="weekly-start-date" name="weekly-start-date" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">每周重复日期</label>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="1" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">一</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="2" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">二</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="3" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">三</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="4" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">四</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="5" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">五</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="6" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">六</span>
+                        </label>
+                        <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
+                            <input type="checkbox" name="weekday" value="0" class="hidden peer">
+                            <span class="text-xs peer-checked:text-primary">日</span>
+                        </label>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">重复类型</label>
+                    <select id="weekly-repeat-type" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-2">
+                        <option value="time-points">特定时间点</option>
+                        <option value="time-range">时间段间隔</option>
+                    </select>
+                    
+                    <!-- 每周特定时间点重复选项 -->
+                    <div id="weekly-time-points">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">每周特定时间点 (最少有一个)</label>
+                        <div id="weekly-times-container" class="space-y-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <input type="time" name="weekly-time-0" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-time-input" placeholder="--:--">
+                                <button type="button" onclick="removeTimeInput('weekly', 0)" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" id="add-weekly-time-btn" class="w-full px-3 py-2 border border-dashed border-gray-600 rounded-lg text-dark-textSecondary hover:bg-dark-hover transition-colors flex items-center justify-center">
+                            <i class="fa fa-plus mr-2"></i>添加时间点
+                        </button>
+                        <p class="text-xs text-primary mt-1">每周在这些时间点重复事件</p>
+                    </div>
+                    
+                    <!-- 每周时间段重复选项 -->
+                    <div id="weekly-time-range" class="hidden">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">每周时间段</label>
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <label for="weekly-range-start" class="block text-xs text-dark-textSecondary mb-1">开始时间</label>
+                                <input type="time" id="weekly-range-start" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="--:--">
+                            </div>
+                            <div>
+                                <label for="weekly-range-end" class="block text-xs text-dark-textSecondary mb-1">结束时间</label>
+                                <input type="time" id="weekly-range-end" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="17:00">
+                            </div>
+                        </div>
+                        <div class="flex gap-2 items-center mb-2">
+                            <label for="weekly-range-interval" class="text-sm text-dark-textSecondary">每</label>
+                            <input type="number" id="weekly-range-interval" min="1" max="120" class="w-20 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="1">
+                            <select id="weekly-range-unit" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                            </select>
+                        </div>
+                        <p class="text-xs text-primary mt-1">每周在指定时间段内按间隔重复事件</p>
+                    </div>
+                </div>
+                
+                <!-- 每月重复选项 -->
+                <div id="monthly-options" class="mb-4 hidden bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">重复类型</label>
+                    <div class="mb-3">
+                        <select id="monthly-repeat-type" name="monthly-repeat-type" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="time-points">特定时间点</option>
+                            <option value="time-range">时间段内重复</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 特定时间点重复设置 -->
+                    <div id="monthly-time-points">
+                        <label class="block text-sm font-medium text-dark-textSecondary mb-2">选择日期</label>
+                        <div class="grid grid-cols-7 gap-2 mb-3">
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="1" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>1</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="2" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>2</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="3" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>3</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="4" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>4</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="5" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>5</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="6" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>6</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="7" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>7</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="8" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>8</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="9" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>9</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="10" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>10</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="11" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>11</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="12" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>12</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="13" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>13</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="14" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>14</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="15" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>15</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="16" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>16</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="17" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>17</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="18" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>18</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="19" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>19</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="20" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>20</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="21" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>21</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="22" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>22</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="23" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>23</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="24" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>24</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="25" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>25</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="26" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>26</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>27</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>28</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>29</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>30</span>
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" name="monthday" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                                <span>31</span>
+                            </label>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">时间点</label>
+                    <div id="monthly-times-container" class="time-container mb-3">
+                        <div class="time-input-group flex items-center gap-2 mb-2">
+                            <input type="time" name="monthly-time-0" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-time-input" placeholder="--:--">
+                            <button type="button" onclick="removeTimeInput('monthly', 0)" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-monthly-time-btn" class="w-full px-3 py-2 border border-dashed border-gray-600 rounded-lg text-dark-textSecondary hover:bg-dark-hover transition-colors flex items-center justify-center">
+                        <i class="fa fa-plus mr-2"></i>添加时间点
+                    </button>
+                </div>
+                
+                <!-- 时间段重复设置 -->
+                <div id="monthly-time-range" class="hidden">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">选择日期</label>
+                    <div class="grid grid-cols-7 gap-2 mb-3">
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="1" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>1</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="2" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>2</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="3" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>3</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="4" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>4</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="5" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>5</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="6" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>6</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="7" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>7</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="8" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>8</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="9" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>9</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="10" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>10</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="11" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>11</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="12" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>12</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="13" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>13</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="14" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>14</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="15" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>15</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="16" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>16</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="17" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>17</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="18" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>18</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="19" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>19</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="20" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>20</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="21" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>21</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="22" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>22</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="23" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>23</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="24" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>24</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="25" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>25</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="26" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>26</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>27</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>28</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>29</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>30</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>31</span>
+                        </label>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>27</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>28</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>29</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>30</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthday" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>31</span>
+                        </label>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">时间段</label>
+                    <div class="flex gap-2 mb-3">
+                        <input type="time" name="monthly-start-time" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="--:--">
+                        <span class="flex items-center text-dark-textSecondary">至</span>
+                        <input type="time" name="monthly-end-time" value="18:00" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">重复间隔</label>
+                    <div class="flex gap-2 items-center">
+                        <input type="number" name="monthly-interval-count" min="1" value="1" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <select name="monthly-interval-unit" class="px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="minute">分钟</option>
+                            <option value="hour">小时</option>
+                        </select>
+                    </div>
+                </div>
+            </div> <!-- 结束 monthly-time-range -->
+
+                <!-- 间隔重复选项 -->
+                <div id="interval-options" class="mb-4 hidden bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">开始时间</label>
+                    <div class="grid grid-cols-2 gap-3 mb-2">
+                        <div>
+                            <input type="date" id="interval-start-date" name="interval-start-date" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <input type="time" id="interval-start-time" name="interval-start-time" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">结束时间</label>
+                    <div class="grid grid-cols-2 gap-3 mb-2">
+                        <div>
+                            <input type="date" id="interval-end-date" name="interval-end-date" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <input type="time" id="interval-end-time" name="interval-end-time" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">间隔设置</label>
+                    <div class="flex gap-3">
+                        <input type="number" id="interval-count" name="interval-count" min="1" value="1" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <select id="interval-unit" name="interval-unit" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="minute">分钟</option>
+                            <option value="hour">小时</option>
+                            <option value="day">天</option>
+                            <option value="week">周</option>
+                            <option value="month">月</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 每月特定日期+当天间隔重复选项 -->
+                <div id="monthly_interval-options" class="mb-4 hidden bg-dark-bg p-3 rounded-lg border border-gray-600">
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">开始时间</label>
+                    <div>
+                        <input type="time" id="monthly_interval-start-time" name="monthly_interval-start-time" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">选择日期</label>
+                    <div class="grid grid-cols-7 gap-2 mb-3">
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="1" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>1</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="2" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>2</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="3" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>3</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="4" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>4</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="5" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>5</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="6" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>6</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="7" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>7</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="8" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>8</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="9" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>9</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="10" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>10</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="11" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>11</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="12" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>12</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="13" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>13</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="14" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>14</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="15" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>15</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="16" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>16</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="17" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>17</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="18" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>18</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="19" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>19</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="20" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>20</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="21" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>21</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="22" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>22</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="23" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>23</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="24" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>24</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="25" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>25</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="26" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>26</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>27</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>28</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>29</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>30</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" name="monthly_interval-day" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <span>31</span>
+                        </label>
+                    </div>
+                    <label class="block text-sm font-medium text-dark-textSecondary mb-2">当天间隔设置</label>
+                    <div class="flex gap-3">
+                        <input type="number" id="monthly_interval-count" name="monthly_interval-count" min="1" value="4" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <select id="monthly_interval-unit" name="monthly_interval-unit" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="minute">分钟</option>
+                            <option value="hour" selected>小时</option>
+                            <option value="day">天</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="location" class="block text-sm font-medium text-dark-textSecondary mb-1 flex items-center gap-1">
+                        <i class="fa fa-map-marker text-primary"></i>
+                        地点
+                    </label>
+                    <input type="text" id="location" name="location" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 hover:border-gray-500" placeholder="输入事件地点">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="notes" class="block text-sm font-medium text-dark-textSecondary mb-1 flex items-center gap-1">
+                        <i class="fa fa-sticky-note-o text-primary"></i>
+                        备注
+                    </label>
+                    <textarea id="notes" name="notes" rows="3" class="w-full px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 hover:border-gray-500" placeholder="输入事件备注"></textarea>
+                </div>
+                
+            </form>
+            
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-700 px-1">
+                <button type="button" id="cancel-task-btn" class="px-6 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg">取消</button>
+                <button type="submit" form="task-form" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg font-medium">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知组件 -->
+    <div id="notification" class="notification">
+        <span id="notification-text"></span>
+    </div>
+    
+    <!-- 确认删除模态框 -->
+    <div id="confirm-delete-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="modal-backdrop absolute inset-0 bg-black bg-opacity-60"></div>
+        <div class="bg-dark-card rounded-xl shadow-xl p-6 w-full max-w-md relative z-10 transform transition-all border border-gray-700 modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-dark-text">确认删除</h3>
+                <button id="close-delete-modal" class="text-dark-textSecondary hover:text-dark-text">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <p class="text-dark-textSecondary mb-6">您确定要删除这个事件吗？此操作无法撤销。</p>
+            
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-delete" class="px-4 py-2 border border-gray-600 rounded-lg text-dark-text hover:bg-dark-hover transition-colors">取消</button>
+                <button id="confirm-delete" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Supabase 配置
+        const supabaseUrl = 'https://prusinqhwaduefiuqkwt.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydXNpbnFod2FkdWVmaXVxa3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMTI5OTYsImV4cCI6MjA3OTU4ODk5Nn0.X__p8sP8ZdaOBGsbFWnhAdgLnjTXN-Y8YMVL5csVQ2Y';
+        // 创建Supabase客户端实例，添加错误处理以应对CDN加载失败
+        let supabase;
+        try {
+            // 检查window.supabase是否存在
+            if (window.supabase) {
+                supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            } else {
+                // 如果CDN加载失败，设置supabase为null
+                supabase = null;
+                console.log('Supabase CDN加载失败，将使用本地存储模式运行');
+            }
+        } catch (error) {
+            // 捕获任何初始化错误
+            supabase = null;
+            console.error('Supabase初始化失败:', error);
+        }
+        
+        // 登录密码（简单示例，实际应用中应使用更安全的认证方式）
+        const ADMIN_PASSWORD = 'sky-13'; // 可以修改为更复杂的密码
+        
+        // 当前登录状态
+        let isLoggedIn = false;
+        
+        // 超时退出相关变量
+        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15分钟超时
+        let sessionTimer = null;
+        
+        // 任务数据
+        let tasks = [];
+        
+        // DOM 元素
+        const loginContainer = document.getElementById('login-container');
+        const adminContainer = document.getElementById('admin-container');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        const tasksTableBody = document.getElementById('tasks-table-body');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskModal = document.getElementById('task-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const cancelTaskBtn = document.getElementById('cancel-task-btn');
+        const taskForm = document.getElementById('task-form');
+        const modalTitle = document.getElementById('modal-title');
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+        // 确认删除模态框元素
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+        const closeDeleteModalBtn = document.getElementById('close-delete-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete');
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        let currentTaskIdToDelete = null;
+        
+        // 显示通知
+        function showNotification(message, isError = false) {
+            notificationText.textContent = message;
+            
+            if (isError) {
+                notification.classList.add('error');
+            } else {
+                notification.classList.remove('error');
+            }
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 重置会话计时器
+        function resetSessionTimer() {
+            if (sessionTimer) {
+                clearTimeout(sessionTimer);
+            }
+            sessionTimer = setTimeout(() => {
+                autoLogout();
+            }, SESSION_TIMEOUT);
+        }
+        
+        // 自动退出登录
+        function autoLogout() {
+            isLoggedIn = false;
+            localStorage.removeItem('adminLoggedIn');
+            adminContainer.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            loginForm.reset();
+            loginError.classList.add('hidden');
+            showNotification('登录超时，已自动退出', false);
+        }
+        
+        // 检查登录状态
+        function checkLogin() {
+            isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+            if (isLoggedIn) {
+                loginContainer.classList.add('hidden');
+                adminContainer.classList.remove('hidden');
+                loadTasks();
+                // 启动会话计时器
+                resetSessionTimer();
+                // 添加用户交互事件监听器
+                addSessionEventListeners();
+            }
+        }
+        
+        // 添加用户交互事件监听器，用于重置计时器
+        function addSessionEventListeners() {
+            const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+            events.forEach(event => {
+                document.addEventListener(event, resetSessionTimer);
+            });
+        }
+        
+        // 登录验证
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            
+            if (password === ADMIN_PASSWORD) {
+                isLoggedIn = true;
+                localStorage.setItem('adminLoggedIn', 'true');
+                loginContainer.classList.add('hidden');
+                adminContainer.classList.remove('hidden');
+                await loadTasks();
+                // 启动会话计时器
+                resetSessionTimer();
+                // 添加用户交互事件监听器
+                addSessionEventListeners();
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+        
+        // 退出登录
+        logoutBtn.addEventListener('click', () => {
+            isLoggedIn = false;
+            localStorage.removeItem('adminLoggedIn');
+            adminContainer.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            loginForm.reset();
+            loginError.classList.add('hidden');
+            // 清除会话计时器
+            if (sessionTimer) {
+                clearTimeout(sessionTimer);
+                sessionTimer = null;
+            }
+        });
+        
+        // 页面加载时检查登录状态
+        window.addEventListener('DOMContentLoaded', () => {
+            checkLogin();
+        });
+        
+        // 从localStorage加载数据
+        function loadFromLocalStorage() {
+            try {
+                const savedData = localStorage.getItem('timeProjectReminderTasks');
+                if (savedData) {
+                    return JSON.parse(savedData);
+                }
+            } catch (e) {
+                console.error('Failed to load from localStorage:', e);
+            }
+            return null;
+        }
+
+        // 从 Supabase 加载任务
+        // 合并数据（基于时间戳的冲突解决）
+        function mergeData(localData, remoteData) {
+            // 确保数据数组有效
+            const local = localData || [];
+            const remote = remoteData || [];
+            
+            // 如果只有远程数据，直接返回
+            if (local.length === 0) {
+                return remote;
+            }
+            
+            // 如果只有本地数据，直接返回
+            if (remote.length === 0) {
+                return local;
+            }
+            
+            // 创建映射表，方便查找任务
+            const localTasksMap = new Map(local.map(task => [task.id, task]));
+            const remoteTasksMap = new Map(remote.map(task => [task.id, task]));
+            
+            const mergedTasks = [];
+            const processedIds = new Set();
+            
+            // 遍历所有远程任务ID，确保远程数据优先
+            for (const [id, remoteTask] of remoteTasksMap.entries()) {
+                if (processedIds.has(id)) continue;
+                
+                const localTask = localTasksMap.get(id);
+                
+                if (!localTask) {
+                    // 本地没有，使用远程数据
+                    mergedTasks.push(remoteTask);
+                } else {
+                    // 本地和远程都有，比较时间戳，使用更新的版本
+                    const localUpdatedAt = new Date(localTask.updated_at || 0);
+                    const remoteUpdatedAt = new Date(remoteTask.updated_at || 0);
+                    
+                    if (remoteUpdatedAt > localUpdatedAt) {
+                        // 远程更新，使用远程数据
+                        mergedTasks.push(remoteTask);
+                        console.log(`任务 ${id} 使用远程数据，远程时间: ${remoteUpdatedAt}，本地时间: ${localUpdatedAt}`);
+                    } else {
+                        // 本地更新，使用本地数据
+                        mergedTasks.push(localTask);
+                        console.log(`任务 ${id} 使用本地数据，远程时间: ${remoteUpdatedAt}，本地时间: ${localUpdatedAt}`);
+                    }
+                }
+                
+                processedIds.add(id);
+            }
+            
+            // 添加本地独有的任务
+            for (const [id, localTask] of localTasksMap.entries()) {
+                if (!processedIds.has(id)) {
+                    mergedTasks.push(localTask);
+                    console.log(`任务 ${id} 仅本地存在，添加到合并结果`);
+                }
+            }
+            
+            return mergedTasks;
+        }
+        
+        // 保存数据到 Supabase
+        async function saveData(data, retry = 0) {
+            try {
+                // 确保数据数组有效
+                const validData = data || [];
+                
+                // 更新每个任务的时间戳，确保本地修改被正确标记
+                const updatedData = validData.map(task => ({
+                    ...task,
+                    updated_at: new Date().toISOString() // 始终使用当前时间作为更新时间
+                }));
+                
+                // 保存数据到localStorage（直接调用localStorage.setItem，避免递归）
+                localStorage.setItem('timeProjectReminderTasks', JSON.stringify(updatedData));
+                
+                if (!supabase) {
+                    console.log('Supabase 未初始化，仅保存到本地存储');
+                    showNotification('数据已保存到本地', false);
+                    return;
+                }
+                
+                // 处理数据，确保格式正确
+                const processedData = updatedData.map(task => ({
+                    ...task,
+                    // 确保recurrence是一个对象，防止NOT NULL约束错误
+                    recurrence: task.recurrence || { type: 'none', duration: 1, durationUnit: 'hour' },
+                    // 确保startDate不为空，防止NOT NULL约束错误
+                    startDate: task.startDate || new Date().toISOString().split('T')[0],
+                    // 确保startTime不为空，防止NOT NULL约束错误
+                    startTime: task.startTime || '00:00'
+                }));
+                
+                try {
+                    // 使用upsert操作更新或插入数据
+                    const { error } = await supabase
+                        .from('tasks_13')
+                        .upsert(processedData, { onConflict: 'id' });
+                    
+                    if (error) {
+                        console.error('Supabase 保存失败:', error);
+                        showNotification('数据同步失败: ' + error.message, true);
+                    } else {
+                        showNotification('数据已成功同步到云端', false);
+                    }
+                } catch (fetchError) {
+                    // 处理网络错误，避免影响本地保存
+                    console.error('Supabase 网络请求失败:', fetchError);
+                    showNotification('数据已保存到本地，但云端同步失败（网络问题）', true);
+                }
+            } catch (error) {
+                console.error('保存数据失败:', error);
+                showNotification('保存数据失败: ' + error.message, true);
+            }
+        }
+        
+        async function loadTasks() {
+            try {
+                // 检查 supabase 是否初始化
+                if (!supabase) {
+                    console.log('Supabase 未初始化，尝试从localStorage加载数据');
+                    const localData = loadFromLocalStorage();
+                    tasks = localData || [];
+                    renderTasksTable();
+                    showNotification('Supabase 未初始化，使用本地存储数据', false);
+                    return;
+                }
+                
+                showNotification('正在从云端加载最新数据...', false);
+                
+                const { data: remoteData, error } = await supabase
+                    .from('tasks_13')
+                    .select('*');
+                
+                if (error) {
+                    console.error('Supabase 加载失败:', error);
+                    // 云端加载失败时，仅作为后备使用本地数据
+                    const localData = loadFromLocalStorage();
+                    tasks = localData || [];
+                    renderTasksTable();
+                    showNotification('数据加载失败，使用本地存储数据作为后备', true);
+                } else {
+                    // 后端直接使用云端数据，忽略本地缓存
+                    console.log('成功从云端加载数据，共', remoteData.length, '个任务');
+                    tasks = remoteData || [];
+                    // 将云端数据保存到localStorage作为备份
+                    await saveData(tasks);
+                    renderTasksTable();
+                    showNotification('数据已成功从云端同步', false);
+                }
+            } catch (error) {
+                console.error('加载任务失败:', error);
+                showNotification('加载任务失败: ' + error.message, true);
+            }
+        }
+        
+        // 排序配置
+        let sortConfig = {
+            key: null,
+            direction: 1
+        };
+        
+        // 渲染任务表格
+        function renderTasksTable() {
+            tasksTableBody.innerHTML = '';
+            
+            // 排序任务
+            const sortedTasks = [...tasks].sort((a, b) => {
+                let aVal, bVal;
+                
+                // 如果没有排序键，不排序
+                if (!sortConfig.key) {
+                    return 0;
+                }
+                
+                switch (sortConfig.key) {
+                    case 'id':
+                        aVal = parseInt(a.id);
+                        bVal = parseInt(b.id);
+                        return (aVal - bVal) * sortConfig.direction;
+                    case 'name':
+                        aVal = a.name.toLowerCase();
+                        bVal = b.name.toLowerCase();
+                        return aVal.localeCompare(bVal) * sortConfig.direction;
+                    case 'priority':
+                        const priorityOrder = { high: 3, medium: 2, low: 1, none: 0 };
+                        aVal = priorityOrder[a.priority] || 0;
+                        bVal = priorityOrder[b.priority] || 0;
+                        return (aVal - bVal) * sortConfig.direction;
+                    case 'startDate':
+                        aVal = new Date(`${a.startDate} ${a.startTime}`).getTime();
+                        bVal = new Date(`${b.startDate} ${b.startTime}`).getTime();
+                        return (aVal - bVal) * sortConfig.direction;
+                    case 'duration':
+                        aVal = parseFloat(a.duration) || 0;
+                        bVal = parseFloat(b.duration) || 0;
+                        return (aVal - bVal) * sortConfig.direction;
+                    case 'displayThreshold':
+                        aVal = a.displayThreshold;
+                        bVal = b.displayThreshold;
+                        return (aVal - bVal) * sortConfig.direction;
+                    default:
+                        return 0;
+                }
+            });
+            
+            sortedTasks.forEach((task, index) => {
+                const row = document.createElement('tr');
+                row.className = `hover:bg-dark-hover/30 transition-colors ${index % 2 === 0 ? 'bg-dark-card' : 'bg-dark-card-alt'}`;
+                
+                // 获取优先级文本
+                const priorityText = {
+                    high: '高',
+                    medium: '中',
+                    low: '低',
+                    none: '无'
+                }[task.priority] || '无';
+                
+                // 获取重复类型文本
+                const recurrenceText = {
+                    none: '不重复',
+                    daily: '每天',
+                    weekly: '每周',
+                    monthly: '每月',
+                    interval: '间隔',
+                    monthly_interval: '每月+间隔',
+                    custom: '自定义'
+                }[task.recurrence.type] || '不重复';
+                
+                // 持续时间显示
+                const durationUnitNames = {
+                    'minute': '分钟',
+                    'hour': '小时',
+                    'day': '天',
+                    'week': '周'
+                };
+                const durationText = `${task.recurrence.duration}${durationUnitNames[task.recurrence.durationUnit]}`;
+                
+                // 显示阈值单位转换
+                const thresholdUnitNames = {
+                    'minute': '分钟',
+                    'hour': '小时',
+                    'day': '天',
+                    'week': '周'
+                };
+                const thresholdText = `${task.displayThreshold}${thresholdUnitNames[task.displayThresholdUnit]}`;
+                
+                // 转换时间单位为毫秒
+                function convertToMilliseconds(value, unit) {
+                    const units = {
+                        minute: 60 * 1000,
+                        hour: 60 * 60 * 1000,
+                        day: 24 * 60 * 60 * 1000,
+                        week: 7 * 24 * 60 * 60 * 1000
+                    };
+                    return value * (units[unit] || units.minute);
+                }
+                
+                // 计算事件的下次发生时间
+                function getNextOccurrence(task, now) {
+                    const [startYear, startMonth, startDay] = task.startDate.split('-').map(Number);
+                    const [startHour, startMinute] = task.startTime.split(':').map(Number);
+                    const initialStart = new Date(startYear, startMonth - 1, startDay, startHour, startMinute);
+                    
+                    // 对于非重复事件，直接返回初始开始时间
+                    if (task.recurrence.type === "none") {
+                        return initialStart;
+                    }
+                    
+                    let intervalMs;
+                    switch(task.recurrence.type) {
+                        case "daily":
+                            intervalMs = 24 * 60 * 60 * 1000;
+                            break;
+                        case "weekly":
+                            intervalMs = 7 * 24 * 60 * 60 * 1000;
+                            break;
+                        case "interval":
+                            intervalMs = convertToMilliseconds(task.recurrence.count, task.recurrence.unit);
+                            break;
+                        case "monthly_interval":
+                            // 对于每月+间隔类型，使用指定的间隔计数和单位
+                            intervalMs = convertToMilliseconds(task.recurrence.intervalCount, task.recurrence.intervalUnit);
+                            break;
+                        case "custom":
+                            intervalMs = convertToMilliseconds(task.recurrence.count, task.recurrence.unit);
+                            break;
+                        default:
+                            intervalMs = 24 * 60 * 60 * 1000;
+                    }
+                    
+                    const timeDiff = now - initialStart;
+                    const intervals = Math.floor(timeDiff / intervalMs);
+                    const lastOccurrence = new Date(initialStart.getTime() + intervals * intervalMs);
+                    
+                    const durationMs = convertToMilliseconds(task.recurrence.duration, task.recurrence.durationUnit);
+                    
+                    // 如果当前时间在最后一次发生的持续时间内，返回最后一次发生时间
+                    if (now <= lastOccurrence.getTime() + durationMs) {
+                        return lastOccurrence;
+                    }
+                    
+                    // 否则返回下次发生时间
+                    return new Date(lastOccurrence.getTime() + intervalMs);
+                }
+                
+                // 计算时间差的显示文本
+                function formatTimeDiff(ms) {
+                    const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+                    const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                    const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+                    
+                    if (days > 0) {
+                        return `${days}天后`;
+                    } else if (hours > 0) {
+                        return `${hours}小时后`;
+                    } else {
+                        return `${minutes}分钟后`;
+                    }
+                }
+                
+                // 计算事件状态
+                const now = new Date();
+                const nextOccurrence = getNextOccurrence(task, now);
+                const durationMs = convertToMilliseconds(task.recurrence.duration, task.recurrence.durationUnit);
+                const startTime = nextOccurrence;
+                const endTime = new Date(nextOccurrence.getTime() + durationMs);
+                
+                let status = '未开始';
+                let statusClass = 'status-not-started';
+                
+                if (now >= startTime && now <= endTime) {
+                    status = '进行中';
+                    statusClass = 'status-ongoing';
+                } else if (task.recurrence.type === "none" && now > endTime) {
+                    status = '已结束';
+                    statusClass = 'status-ended';
+                } else {
+                    // 对于循环事件，显示距离下次开始的时间
+                    const timeUntilNext = startTime - now;
+                    status = `${formatTimeDiff(timeUntilNext)}开始`;
+                    statusClass = 'status-not-started';
+                }
+                
+                row.innerHTML = `
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${index + 1}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${task.id}</td>
+                    <td class="text-dark-text font-medium py-2 px-4 text-center">${task.name}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center"><span class="priority-tag priority-${task.priority || 'none'}">${priorityText}</span></td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${task.startDate} ${task.startTime}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${durationText}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${task.location || '-'}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${thresholdText}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">${recurrenceText}</td>
+                    <td class="text-dark-textSecondary py-2 px-4 text-center">
+                        <span class="${statusClass} text-white text-xs px-2 py-1 rounded-full">
+                            ${status}
+                        </span>
+                    </td>
+                    <td class="py-2 px-4 text-center">
+                        <div class="relative inline-block">
+                            <button class="action-btn edit-btn" onclick="editTask(${task.id})" title="编辑">
+                                <i class="fa fa-pencil"></i>
+                            </button>
+                            <button class="action-btn dropdown-btn" onclick="toggleActionDropdown(${task.id})" title="更多操作">
+                                <i class="fa fa-ellipsis-v"></i>
+                            </button>
+                            <div id="action-dropdown-${task.id}" class="absolute right-0 mt-2 bg-dark-card rounded-lg shadow-xl z-10 hidden border border-gray-700">
+                                <button class="block w-full text-left px-4 py-2 text-sm text-dark-text hover:bg-dark-hover/50 transition-colors" onclick="showConfirmDeleteModal(${task.id})"><i class="fa fa-trash mr-2"></i>删除</button>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                
+                tasksTableBody.appendChild(row);
+            });
+        }
+        
+        // 添加新任务
+        addTaskBtn.addEventListener('click', () => {
+            taskForm.reset();
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-duration').value = 60;
+            document.getElementById('duration-unit').value = 'minute';
+            document.getElementById('interval-count').value = 1;
+            document.getElementById('interval-unit').value = 'day';
+            
+            // 重置所有重复选项
+            document.querySelectorAll('input[name="weekday"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[name="monthday"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[name="monthly_interval-day"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[name="monthly_interval-day"]').forEach(cb => cb.checked = false);
+            
+            // 清空所有时间点容器
+            const weeklyTimesContainer = document.getElementById('weekly-times-container');
+            const dailyTimesContainer = document.getElementById('daily-times-container');
+            weeklyTimesContainer.innerHTML = '';
+            dailyTimesContainer.innerHTML = '';
+            
+            // 隐藏所有重复选项面板
+            [noneOptions, dailyOptions, weeklyOptions, monthlyOptions, intervalOptions, monthlyIntervalOptions].forEach(option => {
+                if (option) {
+                    option.classList.add('hidden');
+                }
+            });
+            
+            // 默认选中"不重复"选项
+            recurrenceOptions.forEach(option => {
+                option.classList.remove('selected');
+                if (option.dataset.type === 'none') {
+                    option.classList.add('selected');
+                    document.getElementById('recurrence-type').value = 'none';
+                    // 显示不重复选项面板
+                    noneOptions.classList.remove('hidden');
+                }
+            });
+            
+            modalTitle.textContent = '添加新事件';
+            taskModal.classList.remove('hidden');
+        });
+        
+        // 获取重复选项元素
+        const noneOptions = document.getElementById('none-options');
+        const dailyOptions = document.getElementById('daily-options');
+        const weeklyOptions = document.getElementById('weekly-options');
+        const monthlyOptions = document.getElementById('monthly-options');
+        const intervalOptions = document.getElementById('interval-options');
+        const monthlyIntervalOptions = document.getElementById('monthly_interval-options');
+        const recurrenceTypeHidden = document.getElementById('recurrence-type');
+        // 在全局作用域定义recurrenceOptions，确保所有事件监听器都能访问
+        const recurrenceOptions = document.querySelectorAll('.recurrence-option');
+        
+        // 关闭模态框
+        closeModalBtn.addEventListener('click', () => {
+            taskModal.classList.add('hidden');
+        });
+        
+        cancelTaskBtn.addEventListener('click', () => {
+            taskModal.classList.add('hidden');
+        });
+        
+        // 编辑任务
+        window.editTask = function(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-name').value = task.name;
+            document.getElementById('task-priority').value = task.priority;
+            document.getElementById('display-threshold').value = task.displayThreshold;
+            document.getElementById('display-threshold-unit').value = task.displayThresholdUnit;
+            document.getElementById('task-duration').value = task.recurrence?.duration || 60;
+            document.getElementById('duration-unit').value = task.recurrence?.durationUnit || 'minute';
+            document.getElementById('location').value = task.location || '';
+            document.getElementById('notes').value = task.notes || '';
+            document.getElementById('recurrence-type').value = task.recurrence.type;
+            
+            // 重置所有重复选项
+            document.querySelectorAll('input[name="weekday"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[name="monthday"]').forEach(cb => cb.checked = false);
+            
+            // 清空所有时间点容器
+            const weeklyTimesContainer = document.getElementById('weekly-times-container');
+            const dailyTimesContainer = document.getElementById('daily-times-container');
+            weeklyTimesContainer.innerHTML = '';
+            dailyTimesContainer.innerHTML = '';
+            
+            // 更新重复类型卡片的选中状态
+            recurrenceOptions.forEach(option => {
+                option.classList.remove('selected');
+                if (option.dataset.type === task.recurrence.type) {
+                    option.classList.add('selected');
+                }
+            });
+            
+            // 根据任务的重复类型设置相应的选项
+            const recurrenceType = task.recurrence.type;
+            showRecurrenceOptions(recurrenceType);
+            
+            // 根据重复类型设置开始日期和时间
+            let startDateField, startTimeField;
+            
+            switch(recurrenceType) {
+                case "none":
+                    startDateField = document.getElementById('none-start-date');
+                    startTimeField = document.getElementById('none-start-time');
+                    break;
+                case "daily":
+                    startDateField = document.getElementById('daily-start-date');
+                    startTimeField = null; // 每天类型不再使用单个开始时间输入框
+                    break;
+                case "weekly":
+                    startDateField = document.getElementById('weekly-start-date');
+                    startTimeField = null; // 每周类型不再使用单个开始时间输入框
+                    break;
+                case "monthly":
+                    startDateField = document.getElementById('monthly-start-date');
+                    startTimeField = null; // 每月类型不再使用单个开始时间输入框
+                    break;
+                case "interval":
+                    startDateField = document.getElementById('interval-start-date');
+                    startTimeField = document.getElementById('interval-start-time');
+                    break;
+                case "monthly_interval":
+                    startDateField = document.getElementById('monthly_interval-start-date');
+                    startTimeField = document.getElementById('monthly_interval-start-time');
+                    break;
+                default:
+                    startDateField = null;
+                    startTimeField = null;
+            }
+            
+            // 设置开始日期和时间
+            if (startDateField) startDateField.value = task.startDate;
+            // 仅当startTimeField存在时才设置（每周类型没有单个开始时间输入框）
+            if (startTimeField) startTimeField.value = task.startTime;
+            
+            // 根据重复类型设置其他选项
+            switch(recurrenceType) {
+                case "none":
+                    // 不重复事件不需要额外的重复规则
+                    break;
+                case "daily":
+                    // 获取每日重复类型
+                    const dailyRepeatType = task.recurrence.dailyRepeatType || 'time-points';
+                    
+                    // 设置重复类型选择器
+                    document.getElementById('daily-repeat-type').value = dailyRepeatType;
+                    
+                    // 根据重复类型切换显示
+                    const timePointsDiv = document.getElementById('daily-time-points');
+                    const timeRangeDiv = document.getElementById('daily-time-range');
+                    
+                    if (dailyRepeatType === 'time-points') {
+                        timePointsDiv.classList.remove('hidden');
+                        timeRangeDiv.classList.add('hidden');
+                        
+                        // 每天重复 - 设置多个时间点
+                        if (task.recurrence.startTimes && task.recurrence.startTimes.length > 0) {
+                            task.recurrence.startTimes.forEach((time, index) => {
+                                // 创建时间点输入框，使用与addTimePoint函数一致的start-time-input类名
+                                const timePointDiv = document.createElement('div');
+                                timePointDiv.className = 'flex items-center gap-2 mb-2';
+                                timePointDiv.innerHTML = `
+                                    <input type="time" class="start-time-input flex-1 min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${time}">
+                                    <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                `;
+                                
+                                // 添加删除事件
+                                timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                    timePointDiv.remove();
+                                });
+                                
+                                dailyTimesContainer.appendChild(timePointDiv);
+                            });
+                        } else {
+                            // 添加一个默认时间点
+                            const timePointDiv = document.createElement('div');
+                            timePointDiv.className = 'flex items-center gap-2 mb-2';
+                            timePointDiv.innerHTML = `
+                                <input type="time" class="time-input min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${task.startTime || '00:00'}">
+                                <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            `;
+                            
+                            // 添加删除事件
+                            timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                timePointDiv.remove();
+                            });
+                            
+                            dailyTimesContainer.appendChild(timePointDiv);
+                        }
+                    } else {
+                        timePointsDiv.classList.add('hidden');
+                        timeRangeDiv.classList.remove('hidden');
+                        
+                        // 设置时间段重复的参数
+                        document.getElementById('daily-range-start').value = task.recurrence.rangeStart || '';
+                        document.getElementById('daily-range-end').value = task.recurrence.rangeEnd || '';
+                        document.getElementById('daily-range-interval').value = task.recurrence.intervalCount || 1;
+                        document.getElementById('daily-range-unit').value = task.recurrence.intervalUnit || 'hour';
+                    }
+                    break;
+                case "weekly":
+                    // 获取每周重复类型
+                    const weeklyRepeatType = task.recurrence.weeklyRepeatType || 'time-points';
+                    
+                    // 设置重复类型选择器
+                    document.getElementById('weekly-repeat-type').value = weeklyRepeatType;
+                    
+                    // 根据重复类型切换显示
+                    const weeklyTimePointsDiv = document.getElementById('weekly-time-points');
+                    const weeklyTimeRangeDiv = document.getElementById('weekly-time-range');
+                    
+                    if (weeklyRepeatType === 'time-points') {
+                        weeklyTimePointsDiv.classList.remove('hidden');
+                        weeklyTimeRangeDiv.classList.add('hidden');
+                        
+                        // 设置每周的星期几
+                        if (task.recurrence.weekdays) {
+                            task.recurrence.weekdays.forEach(day => {
+                                const checkbox = document.querySelector(`input[name="weekday"][value="${day}"]`);
+                                if (checkbox) checkbox.checked = true;
+                            });
+                        }
+                        
+                        // 设置每周的多个时间点
+                        if (task.recurrence.startTimes && task.recurrence.startTimes.length > 0) {
+                            task.recurrence.startTimes.forEach((time, index) => {
+                                // 创建时间点输入框，使用与addTimePoint函数一致的start-time-input类名
+                                const timePointDiv = document.createElement('div');
+                                timePointDiv.className = 'flex items-center gap-2 mb-2';
+                                timePointDiv.innerHTML = `
+                                    <input type="time" class="start-time-input min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${time}">
+                                    <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                `;
+                                
+                                // 添加删除事件
+                                timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                    timePointDiv.remove();
+                                });
+                                
+                                weeklyTimesContainer.appendChild(timePointDiv);
+                            });
+                        } else {
+                            // 添加一个默认时间点
+                            const timePointDiv = document.createElement('div');
+                            timePointDiv.className = 'flex items-center gap-2 mb-2';
+                            timePointDiv.innerHTML = `
+                                <input type="time" class="time-input min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${task.startTime}">
+                                <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            `;
+                            
+                            // 添加删除事件
+                            timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                timePointDiv.remove();
+                            });
+                            
+                            weeklyTimesContainer.appendChild(timePointDiv);
+                        }
+                    } else {
+                        weeklyTimePointsDiv.classList.add('hidden');
+                        weeklyTimeRangeDiv.classList.remove('hidden');
+                        
+                        // 设置每周的星期几
+                        if (task.recurrence.weekdays) {
+                            task.recurrence.weekdays.forEach(day => {
+                                const checkbox = document.querySelector(`input[name="weekday"][value="${day}"]`);
+                                if (checkbox) checkbox.checked = true;
+                            });
+                        }
+                        
+                        // 设置时间段重复的参数
+                        document.getElementById('weekly-range-start').value = task.recurrence.rangeStart || '';
+                        document.getElementById('weekly-range-end').value = task.recurrence.rangeEnd || '';
+                        document.getElementById('weekly-range-interval').value = task.recurrence.intervalCount || 1;
+                        document.getElementById('weekly-range-unit').value = task.recurrence.intervalUnit || 'hour';
+                    }
+                    break;
+                case "monthly":
+                    // 设置每月的日期
+                    if (task.recurrence.days) {
+                        task.recurrence.days.forEach(day => {
+                            const checkbox = document.querySelector(`input[name="monthday"][value="${day}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    
+                    // 获取每月重复类型
+                    const monthlyRepeatType = task.recurrence.monthlyRepeatType || 'time-points';
+                    
+                    // 设置重复类型选择器
+                    document.getElementById('monthly-repeat-type').value = monthlyRepeatType;
+                    
+                    // 根据重复类型切换显示
+                    const monthlyTimePointsDiv = document.getElementById('monthly-time-points');
+                    const monthlyTimeRangeDiv = document.getElementById('monthly-time-range');
+                    const monthlyTimesContainer = document.getElementById('monthly-times-container');
+                    
+                    // 清空每月时间点容器
+                    monthlyTimesContainer.innerHTML = '';
+                    
+                    if (monthlyRepeatType === 'time-points') {
+                        monthlyTimePointsDiv.classList.remove('hidden');
+                        monthlyTimeRangeDiv.classList.add('hidden');
+                        
+                        // 设置每月的多个时间点，与index.html保持一致使用startTimes字段
+                        if (task.recurrence.startTimes && task.recurrence.startTimes.length > 0) {
+                            task.recurrence.startTimes.forEach((time, index) => {
+                                // 创建时间点输入框，使用与addTimePoint函数一致的start-time-input类名
+                                const timePointDiv = document.createElement('div');
+                                timePointDiv.className = 'flex items-center gap-2 mb-2';
+                                timePointDiv.innerHTML = `
+                                    <input type="time" class="start-time-input min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${time}">
+                                    <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                `;
+                                
+                                // 添加删除事件
+                                timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                    timePointDiv.remove();
+                                });
+                                
+                                monthlyTimesContainer.appendChild(timePointDiv);
+                            });
+                        } else {
+                            // 添加一个默认时间点
+                            const timePointDiv = document.createElement('div');
+                            timePointDiv.className = 'flex items-center gap-2 mb-2';
+                            timePointDiv.innerHTML = `
+                                <input type="time" class="time-input min-w-[80px] px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="${task.startTime || '00:00'}">
+                                <button type="button" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            `;
+                            
+                            // 添加删除事件
+                            timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                                timePointDiv.remove();
+                            });
+                            
+                            monthlyTimesContainer.appendChild(timePointDiv);
+                        }
+                    } else {
+                        monthlyTimePointsDiv.classList.add('hidden');
+                        monthlyTimeRangeDiv.classList.remove('hidden');
+                        
+                        // 设置时间段重复的参数
+                        document.querySelector('[name="monthly-start-time"]').value = task.recurrence.rangeStart || '';
+                        document.querySelector('[name="monthly-end-time"]').value = task.recurrence.rangeEnd || '';
+                        document.querySelector('[name="monthly-interval-count"]').value = task.recurrence.intervalCount || 1;
+                        document.querySelector('[name="monthly-interval-unit"]').value = task.recurrence.intervalUnit || 'hour';
+                    }
+                    
+                    // 再次设置每月的日期，确保选中的是当前显示的div中的复选框
+                    if (task.recurrence.days) {
+                        // 首先取消所有name="monthday"的复选框
+                        const allCheckboxes = document.querySelectorAll('input[name="monthday"]');
+                        allCheckboxes.forEach(cb => cb.checked = false);
+                        
+                        // 然后依次选中所有需要的日期
+                        const visibleDiv = monthlyRepeatType === 'time-points' ? monthlyTimePointsDiv : monthlyTimeRangeDiv;
+                        task.recurrence.days.forEach(day => {
+                            // 找到当前显示的div中的复选框并选中
+                            const checkbox = visibleDiv.querySelector(`input[name="monthday"][value="${day}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    break;
+                case "interval":
+                    // 设置间隔重复的参数
+                    document.getElementById('interval-count').value = task.recurrence.count || 1;
+                    document.getElementById('interval-unit').value = task.recurrence.unit || 'day';
+                    break;
+                case "monthly_interval":
+                    // 设置每月的日期
+                    if (task.recurrence.days) {
+                        task.recurrence.days.forEach(day => {
+                            const checkbox = document.querySelector(`input[name="monthly_interval-day"][value="${day}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                    // 设置每月间隔重复的参数
+                    document.getElementById('monthly_interval-count').value = task.recurrence.count || 1;
+                    document.getElementById('monthly_interval-unit').value = task.recurrence.unit || 'month';
+                    break;
+            }
+            
+            modalTitle.textContent = '编辑事件';
+            taskModal.classList.remove('hidden');
+        };
+        
+        // 显示确认删除模态框
+        window.showConfirmDeleteModal = function(id) {
+            currentTaskIdToDelete = id;
+            confirmDeleteModal.classList.remove('hidden');
+        };
+        
+        // 隐藏确认删除模态框
+        function hideConfirmDeleteModal() {
+            confirmDeleteModal.classList.add('hidden');
+            currentTaskIdToDelete = null;
+        }
+        
+        // 确认删除任务
+        async function confirmDeleteTask() {
+            if (!currentTaskIdToDelete) return;
+            
+            try {
+                // 检查 supabase 是否初始化
+                if (!supabase) {
+                    // 直接从本地任务列表中删除
+                    tasks = tasks.filter(t => t.id !== currentTaskIdToDelete);
+                    // 保存到localStorage
+                    await saveData(tasks);
+                    // 更新表格
+                    renderTasksTable();
+                    showNotification('事件删除成功', false);
+                } else {
+                    // 从Supabase删除
+                    const { error } = await supabase
+                        .from('tasks_13')
+                        .delete()
+                        .eq('id', currentTaskIdToDelete);
+                    
+                    if (error) {
+                        console.log('Supabase 删除失败，从本地存储中删除:', error);
+                        // 直接从本地任务列表中删除
+                        tasks = tasks.filter(t => t.id !== currentTaskIdToDelete);
+                        // 保存到localStorage
+                        await saveData(tasks);
+                        // 更新表格
+                        renderTasksTable();
+                        showNotification('事件已在本地删除', false);
+                    } else {
+                        // 从本地任务列表中删除
+                        tasks = tasks.filter(t => t.id !== currentTaskIdToDelete);
+                        // 更新表格
+                        renderTasksTable();
+                        showNotification('事件删除成功', false);
+                    }
+                }
+            } catch (error) {
+                console.error('删除任务失败:', error);
+                // 从本地存储中删除任务
+                tasks = tasks.filter(t => t.id !== currentTaskIdToDelete);
+                await saveData(tasks);
+                renderTasksTable();
+                showNotification('事件已在本地删除', false);
+            } finally {
+                hideConfirmDeleteModal();
+            }
+        };
+        
+        // 绑定确认删除事件
+        closeDeleteModalBtn.addEventListener('click', hideConfirmDeleteModal);
+        cancelDeleteBtn.addEventListener('click', hideConfirmDeleteModal);
+        confirmDeleteBtn.addEventListener('click', confirmDeleteTask);
+        // 点击模态框背景关闭
+        confirmDeleteModal.querySelector('.modal-backdrop').addEventListener('click', hideConfirmDeleteModal);
+        
+        // 显示对应的重复选项面板
+        function showRecurrenceOptions(type) {
+            // 隐藏所有选项面板
+            [noneOptions, dailyOptions, weeklyOptions, monthlyOptions, intervalOptions, monthlyIntervalOptions].forEach(option => {
+                if (option) {
+                    option.classList.add('hidden');
+                }
+            });
+            
+            // 根据类型显示对应的选项面板
+            if (type === 'none' && noneOptions) {
+                noneOptions.classList.remove('hidden');
+            } else if (type === 'daily' && dailyOptions) {
+                dailyOptions.classList.remove('hidden');
+            } else if (type === 'weekly' && weeklyOptions) {
+                weeklyOptions.classList.remove('hidden');
+            } else if (type === 'monthly' && monthlyOptions) {
+                monthlyOptions.classList.remove('hidden');
+            } else if (type === 'interval' && intervalOptions) {
+                intervalOptions.classList.remove('hidden');
+            } else if (type === 'monthly_interval' && monthlyIntervalOptions) {
+                monthlyIntervalOptions.classList.remove('hidden');
+            }
+        }
+        
+        // 添加重复类型切换事件监听器（每天重复）
+        const dailyRepeatTypeSelect = document.getElementById('daily-repeat-type');
+        
+        // 添加每月重复类型切换事件监听器
+        const monthlyRepeatTypeSelect = document.getElementById('monthly-repeat-type');
+        if (monthlyRepeatTypeSelect) {
+            monthlyRepeatTypeSelect.addEventListener('change', function() {
+                const monthlyTimePoints = document.getElementById('monthly-time-points');
+                const monthlyTimeRange = document.getElementById('monthly-time-range');
+                if (this.value === 'time-points') {
+                    monthlyTimePoints.classList.remove('hidden');
+                    monthlyTimeRange.classList.add('hidden');
+                } else {
+                    monthlyTimePoints.classList.add('hidden');
+                    monthlyTimeRange.classList.remove('hidden');
+                }
+            });
+        }
+        if (dailyRepeatTypeSelect) {
+            dailyRepeatTypeSelect.addEventListener('change', function() {
+                const timePointsDiv = document.getElementById('daily-time-points');
+                const timeRangeDiv = document.getElementById('daily-time-range');
+                if (this.value === 'time-points') {
+                    timePointsDiv.classList.remove('hidden');
+                    timeRangeDiv.classList.add('hidden');
+                } else {
+                    timePointsDiv.classList.add('hidden');
+                    timeRangeDiv.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // 添加重复类型切换事件监听器（每周重复）
+        const weeklyRepeatTypeSelect = document.getElementById('weekly-repeat-type');
+        if (weeklyRepeatTypeSelect) {
+            weeklyRepeatTypeSelect.addEventListener('change', function() {
+                const timePointsDiv = document.getElementById('weekly-time-points');
+                const timeRangeDiv = document.getElementById('weekly-time-range');
+                if (this.value === 'time-points') {
+                    timePointsDiv.classList.remove('hidden');
+                    timeRangeDiv.classList.add('hidden');
+                } else {
+                    timePointsDiv.classList.add('hidden');
+                    timeRangeDiv.classList.remove('hidden');
+                }
+            });
+        }
+
+        // 监听重复类型卡片点击，显示对应的选项面板
+        recurrenceOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                // 移除所有选项的选中状态
+                recurrenceOptions.forEach(opt => opt.classList.remove('selected'));
+                // 添加当前选项的选中状态
+                option.classList.add('selected');
+                // 获取选中的重复类型
+                const type = option.dataset.type;
+                // 更新隐藏的输入字段
+                recurrenceTypeHidden.value = type;
+                // 显示对应的选项面板
+                showRecurrenceOptions(type);
+            });
+        });
+        
+        // 添加时间点功能的通用函数
+        function addTimePoint(containerId, time = '') {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const timePointDiv = document.createElement('div');
+            timePointDiv.className = 'flex items-center gap-2 mb-2';
+            
+            // 根据容器ID确定时间类型
+            const timeType = containerId.replace('-times-container', '');
+            const containerElement = document.getElementById(containerId);
+            const inputCount = containerElement.querySelectorAll('.flex.items-center.gap-2').length;
+            
+            timePointDiv.innerHTML = `
+                <input type="time" name="${timeType}-time-${inputCount}" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-time-input" ${time ? `value="${time}"` : 'placeholder="--:--"'}>
+                <button type="button" onclick="removeTimeInput('${timeType}', ${inputCount})" class="remove-time-btn bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            `;
+            
+            // 添加删除时间点的事件监听
+            timePointDiv.querySelector('.remove-time-btn').addEventListener('click', () => {
+                const timeInputs = container.querySelectorAll('.time-input');
+                // 确保至少保留一个时间点
+                if (timeInputs.length > 1) {
+                    timePointDiv.remove();
+                } else {
+                    // 如果只有一个时间点，显示警告
+                    alert('至少需要保留一个时间点');
+                }
+            });
+            
+            container.appendChild(timePointDiv);
+        }
+        
+        // 绑定添加时间点按钮事件将在DOMContentLoaded事件中完成
+        
+        // 移除时间输入框
+        function removeTimeInput(type, index) {
+            const containerId = `${type}-times-container`;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const inputGroups = container.querySelectorAll('.flex.items-center.gap-2');
+            if (inputGroups.length > 1) {
+                inputGroups[index].remove();
+                
+                // 更新剩余时间点的索引和事件
+                const remainingGroups = container.querySelectorAll('.flex.items-center.gap-2');
+                remainingGroups.forEach((group, i) => {
+                    const input = group.querySelector('input[type="time"]');
+                    const button = group.querySelector('button');
+                    
+                    if (input) {
+                        input.name = `${type}-time-${i}`;
+                    }
+                    
+                    if (button) {
+                        button.onclick = () => removeTimeInput(type, i);
+                    }
+                });
+            } else {
+                alert('至少需要保留一个时间点');
+            }
+        }
+        
+        // 初始化默认时间点的删除按钮事件
+        function initTimePointRemoveEvents() {
+            const removeButtons = document.querySelectorAll('.remove-time-btn');
+            removeButtons.forEach(button => {
+                // 移除可能存在的旧事件监听器
+                button.replaceWith(button.cloneNode(true));
+            });
+            
+            // 重新添加事件监听器
+            const newRemoveButtons = document.querySelectorAll('.remove-time-btn');
+            newRemoveButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const timePointDiv = button.parentElement;
+                    const container = timePointDiv.parentElement;
+                    const timeInputs = container.querySelectorAll('.time-input');
+                    
+                    // 确保至少保留一个时间点
+                    if (timeInputs.length > 1) {
+                        timePointDiv.remove();
+                    } else {
+                        alert('至少需要保留一个时间点');
+                    }
+                });
+            });
+        }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', initTimePointRemoveEvents);
+        
+
+        
+        // 保存任务
+        taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 获取任务ID，确保空字符串返回null而不是NaN
+            const taskIdElement = document.getElementById('task-id');
+            const taskIdValue = taskIdElement ? taskIdElement.value : '';
+            const id = taskIdValue ? parseInt(taskIdValue) || null : null;
+            console.log('当前任务ID:', id, typeof id); // 添加调试信息
+            const name = document.getElementById('task-name') ? document.getElementById('task-name').value : '';
+            const priority = document.getElementById('task-priority') ? document.getElementById('task-priority').value : 'medium';
+            const displayThresholdElement = document.getElementById('display-threshold');
+            const displayThreshold = displayThresholdElement ? parseInt(displayThresholdElement.value) : 10;
+            const displayThresholdUnit = document.getElementById('display-threshold-unit') ? document.getElementById('display-threshold-unit').value : 'minute';
+            const durationElement = document.getElementById('task-duration');
+            const duration = durationElement ? parseInt(durationElement.value) : 30;
+            const durationUnit = document.getElementById('duration-unit') ? document.getElementById('duration-unit').value : 'minute';
+            const location = document.getElementById('location') ? document.getElementById('location').value : '';
+            const notes = document.getElementById('notes') ? document.getElementById('notes').value : '';
+            const recurrenceType = document.getElementById('recurrence-type') ? document.getElementById('recurrence-type').value : 'none';
+            
+            // 根据选中的重复类型获取相应的开始日期和时间
+            let startDate, startTime, startTimes = [], dailyRepeatType, weeklyRepeatType, rangeStart, rangeEnd, intervalCount, intervalUnit;
+            
+            switch(recurrenceType) {
+                case 'none':
+                    startDate = document.getElementById('none-start-date') ? document.getElementById('none-start-date').value : '';
+                    startTime = document.getElementById('none-start-time') ? document.getElementById('none-start-time').value : '';
+                    break;
+                case 'daily':
+                    startDate = document.getElementById('daily-start-date') ? document.getElementById('daily-start-date').value : '';
+                    startTime = '00:00'; // 默认值，因为我们不再使用单个开始时间输入框
+                    
+                    // 获取重复类型
+                    dailyRepeatType = document.getElementById('daily-repeat-type').value;
+                    
+                    if (dailyRepeatType === 'time-points') {
+                        // 收集每天重复的时间点
+                        startTimes = Array.from(document.querySelectorAll('#daily-times-container input[type="time"]'))
+                            .map(input => input.value)
+                            .filter(time => time);
+                        if (startTimes.length === 0) {
+                            startTimes.push(startTime);
+                        }
+                    } else {
+                        // 收集时间段重复的数据
+                        startTimes = [];
+                        rangeStart = document.getElementById('daily-range-start').value;
+                        rangeEnd = document.getElementById('daily-range-end').value;
+                        intervalCount = document.getElementById('daily-range-interval').value;
+                        intervalUnit = document.getElementById('daily-range-unit').value;
+                    }
+                    break;
+                case 'weekly':
+                    startDate = document.getElementById('weekly-start-date') ? document.getElementById('weekly-start-date').value : '';
+                    startTime = '00:00'; // 默认值，不再使用单个开始时间输入框
+                    weeklyRepeatType = document.getElementById('weekly-repeat-type').value;
+                    if (weeklyRepeatType === 'time-points') {
+                        startTimes = Array.from(document.querySelectorAll('#weekly-times-container input[type="time"]'))
+                            .map(input => input.value)
+                            .filter(time => time);
+                        // 确保至少有一个时间点
+                        if (startTimes.length === 0) {
+                            startTimes.push(''); // 添加一个空的默认时间点
+                        }
+                        rangeStart = '';
+                        rangeEnd = '';
+                        intervalCount = '';
+                        intervalUnit = '';
+                    } else {
+                        // 收集时间段重复的数据
+                        startTimes = [];
+                        rangeStart = document.getElementById('weekly-range-start').value;
+                        rangeEnd = document.getElementById('weekly-range-end').value;
+                        intervalCount = document.getElementById('weekly-range-interval').value;
+                        intervalUnit = document.getElementById('weekly-range-unit').value;
+                    }
+                    break;
+                case 'monthly':
+                    // 收集每月重复类型
+                    const monthlyRepeatType = document.getElementById('monthly-repeat-type').value;
+                    startDate = document.getElementById('monthly-start-date') ? document.getElementById('monthly-start-date').value : '';
+                    
+                    // 根据重复类型收集不同的数据
+                    if (monthlyRepeatType === 'time-points') {
+                        // 收集每月时间点数据，与index.html保持一致使用startTimes字段
+                        // 注意：容器是monthly-times-container，不是monthly-time-points
+                        startTimes = Array.from(document.querySelectorAll('#monthly-times-container .start-time-input')).map(input => input.value);
+                        // 确保至少有一个时间点
+                        if (startTimes.length === 0) {
+                            startTimes.push('00:00');
+                        }
+                        // 设置startTime为第一个时间点
+                        startTime = startTimes[0] || '00:00';
+                    } else {
+                        // 收集每月时间段数据
+                        rangeStart = document.querySelector('[name="monthly-start-time"]').value;
+                        rangeEnd = document.querySelector('[name="monthly-end-time"]').value;
+                        intervalCount = document.querySelector('[name="monthly-interval-count"]').value;
+                        intervalUnit = document.querySelector('[name="monthly-interval-unit"]').value;
+                        // 设置startTime为时间段的开始时间
+                        startTime = rangeStart || '00:00';
+                    }
+                    break;
+                case 'interval':
+                    startDate = document.getElementById('interval-start-date') ? document.getElementById('interval-start-date').value : '';
+                    startTime = document.getElementById('interval-start-time') ? document.getElementById('interval-start-time').value : '';
+                    // 获取结束时间
+                    endDate = document.getElementById('interval-end-date') ? document.getElementById('interval-end-date').value : '';
+                    endTime = document.getElementById('interval-end-time') ? document.getElementById('interval-end-time').value : '';
+                    break;
+                case 'monthly_interval':
+                    // monthly_interval类型也需要开始日期，使用今天的日期作为默认值
+                    startDate = document.getElementById('monthly_interval-start-date') ? document.getElementById('monthly_interval-start-date').value : new Date().toISOString().split('T')[0];
+                    startTime = document.getElementById('monthly_interval-start-time') ? document.getElementById('monthly_interval-start-time').value : '';
+                    break;
+
+                default:
+                    startDate = '';
+                    startTime = '';
+            }
+            
+            // 构建任务数据，与index.html保持一致
+            const taskData = {
+                id: id,
+                name: name,
+                priority: priority,
+                displayThreshold: parseInt(displayThreshold) || 10,
+                displayThresholdUnit: displayThresholdUnit || "minute",
+                startDate: startDate,
+                startTime: startTime,
+                duration: duration,
+                durationUnit: durationUnit,
+                location: location,
+                notes: notes,
+                recurrence: {
+                    type: recurrenceType,
+                    duration: duration,
+                    durationUnit: durationUnit,
+                    // 与index.html保持一致，使用startTimes字段存储所有类型的时间点
+                    startTimes: startTimes,
+                    // 处理重复选项
+                    weekdays: Array.from(document.querySelectorAll('input[name="weekday"]:checked')).map(cb => Number(cb.value)),
+                    monthdays: Array.from(document.querySelectorAll('input[name="monthday"]:checked')).map(cb => Number(cb.value)),
+                    monthlyIntervalDays: Array.from(document.querySelectorAll('input[name="monthly_interval-day"]:checked')).map(cb => Number(cb.value)),
+                    // 添加每日重复类型
+                    dailyRepeatType: dailyRepeatType,
+                    // 添加每周重复类型
+                    weeklyRepeatType: weeklyRepeatType,
+                    // 添加每月重复类型
+                    monthlyRepeatType: document.getElementById('monthly-repeat-type') ? document.getElementById('monthly-repeat-type').value : 'time-points',
+                    // 时间段重复相关字段
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd,
+                    // 根据重复类型设置间隔参数
+                    intervalCount: intervalCount ? parseInt(intervalCount) : 1,
+                    intervalUnit: intervalUnit || 'day',
+                    // 为interval类型设置间隔参数
+                    ...(recurrenceType === 'interval' || recurrenceType === 'custom' ? {
+                        intervalCount: document.getElementById('interval-count') ? parseInt(document.getElementById('interval-count').value) || 1 : 1,
+                        intervalUnit: document.getElementById('interval-unit') ? document.getElementById('interval-unit').value : 'day',
+                        // 添加结束时间
+                        endDate: endDate,
+                        endTime: endTime
+                    } : {}),
+                    // 为monthly_interval类型设置间隔参数
+                    ...(recurrenceType === 'monthly_interval' ? {
+                        intervalCount: document.getElementById('monthly_interval-count') ? parseInt(document.getElementById('monthly_interval-count').value) || 1 : 1,
+                        intervalUnit: document.getElementById('monthly_interval-unit') ? document.getElementById('monthly_interval-unit').value : 'month'
+                    } : {})
+                }
+            }
+            
+            try {
+                // 检查 supabase 是否初始化
+                if (!supabase) {
+                    // 使用本地模式保存任务
+                    if (id) {
+                        // 更新现有任务，与index.html的updateExistingTask函数逻辑保持一致
+                        const taskIndex = tasks.findIndex(t => t.id === id);
+                        if (taskIndex !== -1) {
+                            const duration = parseInt(taskData.duration) || 10;
+                            const durationUnit = taskData.durationUnit || "minute";
+                            
+                            tasks[taskIndex].name = taskData.name;
+                            tasks[taskIndex].displayThreshold = taskData.displayThreshold;
+                            tasks[taskIndex].displayThresholdUnit = taskData.displayThresholdUnit;
+                            tasks[taskIndex].priority = taskData.priority;
+                            tasks[taskIndex].duration = duration;
+                            tasks[taskIndex].durationUnit = durationUnit;
+                            tasks[taskIndex].location = taskData.location;
+                            tasks[taskIndex].notes = taskData.notes;
+                            tasks[taskIndex].recurrence.duration = duration;
+                            tasks[taskIndex].recurrence.durationUnit = durationUnit;
+                            tasks[taskIndex].recurrence.type = taskData.recurrence.type;
+                            
+                            // 清除旧的重复规则，确保所有旧模式的属性都被清除
+                            delete tasks[taskIndex].recurrence.weekdays;
+                            delete tasks[taskIndex].recurrence.days;
+                            delete tasks[taskIndex].recurrence.count;
+                            delete tasks[taskIndex].recurrence.unit;
+                            delete tasks[taskIndex].recurrence.startTimes;
+                            delete tasks[taskIndex].recurrence.startTime;
+                            delete tasks[taskIndex].recurrence.weeklyRepeatType;
+                            delete tasks[taskIndex].recurrence.dailyRepeatType;
+                            delete tasks[taskIndex].recurrence.monthlyRepeatType;
+                            delete tasks[taskIndex].recurrence.rangeStart;
+                            delete tasks[taskIndex].recurrence.rangeEnd;
+                            delete tasks[taskIndex].recurrence.intervalCount;
+                            delete tasks[taskIndex].recurrence.intervalUnit;
+                            delete tasks[taskIndex].recurrence.endDate;
+                            delete tasks[taskIndex].recurrence.endTime;
+                            delete tasks[taskIndex].recurrence.monthweekdays;
+                            delete tasks[taskIndex].recurrence.pattern;
+                            
+                            // 根据重复类型添加相应的规则
+                            switch(taskData.recurrence.type) {
+                                case "none":
+                                    // 不重复事件不需要额外的重复规则
+                                    break;
+                                case "daily":
+                                    // 每天重复 - 支持多个开始时间
+                                    tasks[taskIndex].recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                    tasks[taskIndex].recurrence.dailyRepeatType = taskData.recurrence.dailyRepeatType || 'time-points';
+                                    tasks[taskIndex].recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    tasks[taskIndex].recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                    break;
+                                case "weekly":
+                                    tasks[taskIndex].recurrence.weekdays = taskData.recurrence.weekdays.length > 0 ? taskData.recurrence.weekdays : [1];
+                                    tasks[taskIndex].recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                    tasks[taskIndex].recurrence.weeklyRepeatType = taskData.recurrence.weeklyRepeatType || 'time-points';
+                                    tasks[taskIndex].recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    tasks[taskIndex].recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                    break;
+                                case "monthly":
+                                    tasks[taskIndex].recurrence.days = taskData.recurrence.monthdays.length > 0 ? taskData.recurrence.monthdays : [1];
+                                    tasks[taskIndex].recurrence.startTimes = taskData.recurrence.startTimes || [];
+                                    tasks[taskIndex].recurrence.monthlyRepeatType = taskData.recurrence.monthlyRepeatType || 'time-points';
+                                    tasks[taskIndex].recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    tasks[taskIndex].recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                    break;
+                                case "interval":
+                                    tasks[taskIndex].recurrence.count = taskData.recurrence.intervalCount;
+                                    tasks[taskIndex].recurrence.unit = taskData.recurrence.intervalUnit;
+                                    break;
+                                case "monthly_interval":
+                                    tasks[taskIndex].recurrence.days = taskData.recurrence.monthlyIntervalDays.length > 0 ? taskData.recurrence.monthlyIntervalDays : [1];
+                                    tasks[taskIndex].recurrence.count = taskData.recurrence.intervalCount;
+                                    tasks[taskIndex].recurrence.unit = taskData.recurrence.intervalUnit;
+                                    break;
+                            }
+                        }
+                    } else {
+                        // 添加新任务，与index.html的addNewTask函数逻辑保持一致
+                        const duration = parseInt(taskData.duration) || 10;
+                        const durationUnit = taskData.durationUnit || "minute";
+                        
+                        // 生成新ID：当前最大ID加1
+                        const maxId = tasks.length > 0 ? Math.max(...tasks.map(task => task.id)) : 0;
+                        const newId = maxId + 1;
+                        
+                        const newTask = {
+                            name: taskData.name,
+                            startDate: taskData.startDate || new Date().toISOString().split('T')[0],
+                            startTime: taskData.startTime || new Date().toTimeString().split(':').slice(0, 2).join(':'),
+                            displayThreshold: taskData.displayThreshold,
+                            displayThresholdUnit: taskData.displayThresholdUnit,
+                            priority: taskData.priority,
+                            duration: duration,
+                            durationUnit: durationUnit,
+                            location: taskData.location,
+                            notes: taskData.notes,
+                            id: newId,
+                            recurrence: {
+                                duration: duration,
+                                durationUnit: durationUnit,
+                                type: taskData.recurrence.type
+                            }
+                        };
+                        
+                        // 根据重复类型添加相应的规则
+                        switch(taskData.recurrence.type) {
+                            case "none":
+                                // 不重复事件不需要额外的重复规则
+                                break;
+                            case "daily":
+                                // 每天重复 - 支持多个开始时间
+                                newTask.recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                newTask.recurrence.dailyRepeatType = taskData.recurrence.dailyRepeatType || 'time-points';
+                                
+                                // 只有在time-range模式下才添加时间段相关属性
+                                if (newTask.recurrence.dailyRepeatType === 'time-range') {
+                                    newTask.recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    newTask.recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    newTask.recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    newTask.recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                }
+                                break;
+                            case "weekly":
+                                newTask.recurrence.weekdays = taskData.recurrence.weekdays.length > 0 ? taskData.recurrence.weekdays : [1];
+                                newTask.recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                newTask.recurrence.weeklyRepeatType = taskData.recurrence.weeklyRepeatType || 'time-points';
+                                
+                                // 只有在time-range模式下才添加时间段相关属性
+                                if (newTask.recurrence.weeklyRepeatType === 'time-range') {
+                                    newTask.recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    newTask.recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    newTask.recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    newTask.recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                }
+                                break;
+                            case "monthly":
+                                newTask.recurrence.days = taskData.recurrence.monthdays.length > 0 ? taskData.recurrence.monthdays : [1];
+                                newTask.recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                newTask.recurrence.monthlyRepeatType = taskData.recurrence.monthlyRepeatType || 'time-points';
+                                
+                                // 只有在time-range模式下才添加时间段相关属性
+                                if (newTask.recurrence.monthlyRepeatType === 'time-range') {
+                                    newTask.recurrence.rangeStart = taskData.recurrence.rangeStart;
+                                    newTask.recurrence.rangeEnd = taskData.recurrence.rangeEnd;
+                                    newTask.recurrence.intervalCount = taskData.recurrence.intervalCount;
+                                    newTask.recurrence.intervalUnit = taskData.recurrence.intervalUnit;
+                                }
+                                break;
+                            case "interval":
+                                newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                // 保存结束时间
+                                newTask.recurrence.endDate = taskData.recurrence.endDate;
+                                newTask.recurrence.endTime = taskData.recurrence.endTime;
+                                break;
+                            case "monthly_interval":
+                                newTask.recurrence.days = taskData.recurrence.monthlyIntervalDays.length > 0 ? taskData.recurrence.monthlyIntervalDays : [1];
+                                newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                newTask.recurrence.startTime = newTask.startTime;
+                                break;
+                        }
+                        
+                        tasks.push(newTask);
+                    }
+                    
+                    // 保存到localStorage
+                    await saveData(tasks);
+                    renderTasksTable();
+                    taskModal.classList.add('hidden');
+                    showNotification('事件已在本地更新');
+                    return;
+                }
+                
+                // 构建与index.html一致的taskData格式，用于Supabase
+                const now = new Date().toISOString();
+                const supabaseTaskData = {
+                    name: taskData.name,
+                    priority: taskData.priority,
+                    displayThreshold: taskData.displayThreshold,
+                    displayThresholdUnit: taskData.displayThresholdUnit,
+                    startDate: taskData.startDate,
+                    startTime: taskData.startTime,
+                    duration: taskData.duration,
+                    durationUnit: taskData.durationUnit,
+                    location: taskData.location,
+                    notes: taskData.notes,
+                    recurrence: {
+                        type: taskData.recurrence.type,
+                        duration: taskData.duration,
+                        durationUnit: taskData.durationUnit
+                    },
+                    updated_at: now
+                };
+                
+                // 只有在更新现有任务时才添加id字段
+                if (id) {
+                    supabaseTaskData.id = id;
+                } else {
+                    // 新任务添加created_at字段
+                    supabaseTaskData.created_at = now;
+                }
+                
+                // 根据重复类型添加相应的规则
+                switch(taskData.recurrence.type) {
+                    case "none":
+                        // 不重复事件不需要额外的重复规则
+                        break;
+                    case "daily":
+                        const dailyStartTimes = taskData.recurrence?.startTimes || taskData.startTimes || [];
+                        supabaseTaskData.recurrence.startTimes = dailyStartTimes.length > 0 ? dailyStartTimes : [taskData.startTime];
+                        supabaseTaskData.recurrence.dailyRepeatType = taskData.recurrence?.dailyRepeatType || 'time-points';
+                        
+                        // 只有在time-range模式下才添加时间段相关属性
+                        if (taskData.recurrence?.dailyRepeatType === 'time-range') {
+                            supabaseTaskData.recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                            supabaseTaskData.recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                            supabaseTaskData.recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                            supabaseTaskData.recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                        }
+                        break;
+                    case "weekly":
+                        const weekdays = taskData.recurrence?.weekdays || taskData.weekdays || [];
+                        const startTimes = taskData.recurrence?.startTimes || taskData.startTimes || [];
+                        supabaseTaskData.recurrence.weekdays = weekdays.length > 0 ? weekdays : [1];
+                        supabaseTaskData.recurrence.startTimes = startTimes.length > 0 ? startTimes : [taskData.startTime];
+                        supabaseTaskData.recurrence.weeklyRepeatType = taskData.recurrence?.weeklyRepeatType || 'time-points';
+                        
+                        // 只有在time-range模式下才添加时间段相关属性
+                        if (taskData.recurrence?.weeklyRepeatType === 'time-range') {
+                            supabaseTaskData.recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                            supabaseTaskData.recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                            supabaseTaskData.recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                            supabaseTaskData.recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                        }
+                        break;
+                    case "monthly":
+                        const monthDays = taskData.recurrence?.monthdays || taskData.startDates || [];
+                        supabaseTaskData.recurrence.days = monthDays.length > 0 ? monthDays : [1];
+                        supabaseTaskData.recurrence.startTimes = taskData.recurrence?.startTimes?.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                        supabaseTaskData.recurrence.monthlyRepeatType = taskData.recurrence?.monthlyRepeatType || 'time-points';
+                        
+                        // 只有在time-range模式下才添加时间段相关属性
+                        if (taskData.recurrence?.monthlyRepeatType === 'time-range') {
+                            supabaseTaskData.recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                            supabaseTaskData.recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                            supabaseTaskData.recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                            supabaseTaskData.recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                        }
+                        break;
+                    case "interval":
+                        supabaseTaskData.recurrence.count = taskData.recurrence?.intervalCount || taskData.intervalCount || 1;
+                        supabaseTaskData.recurrence.unit = taskData.recurrence?.intervalUnit || taskData.intervalUnit || "day";
+                        supabaseTaskData.recurrence.startTime = taskData.startTime;
+                        // 添加结束时间到Supabase数据
+                        if (taskData.recurrence?.endDate) supabaseTaskData.recurrence.endDate = taskData.recurrence.endDate;
+                        if (taskData.recurrence?.endTime) supabaseTaskData.recurrence.endTime = taskData.recurrence.endTime;
+                        break;
+                    case "monthly_interval":
+                        const monthlyIntervalDays = taskData.recurrence?.monthlyIntervalDays || [];
+                        supabaseTaskData.recurrence.days = monthlyIntervalDays.length > 0 ? monthlyIntervalDays : [1];
+                        supabaseTaskData.recurrence.count = taskData.recurrence?.intervalCount || 1;
+                        supabaseTaskData.recurrence.unit = taskData.recurrence?.intervalUnit || "month";
+                        supabaseTaskData.recurrence.startTime = taskData.startTime;
+                        break;
+                }
+                
+                let result;
+                if (id) {
+                    // 更新现有任务
+                    result = await supabase
+                        .from('tasks_13')
+                        .update(supabaseTaskData)
+                        .eq('id', id);
+                    
+                    if (result.error) {
+                        console.log('Supabase 更新失败，使用本地存储更新:', result.error);
+                        // 使用本地模式更新任务
+                        const taskIndex = tasks.findIndex(t => t.id === id);
+                        if (taskIndex !== -1) {
+                            const duration = parseInt(taskData.duration) || 10;
+                            const durationUnit = taskData.durationUnit || "minute";
+                            const now = new Date().toISOString();
+                            
+                            tasks[taskIndex].name = taskData.name;
+                            tasks[taskIndex].startDate = taskData.startDate;
+                            tasks[taskIndex].startTime = taskData.startTime;
+                            tasks[taskIndex].displayThreshold = taskData.displayThreshold;
+                            tasks[taskIndex].displayThresholdUnit = taskData.displayThresholdUnit;
+                            tasks[taskIndex].priority = taskData.priority;
+                            tasks[taskIndex].duration = duration;
+                            tasks[taskIndex].durationUnit = durationUnit;
+                            tasks[taskIndex].location = taskData.location;
+                            tasks[taskIndex].notes = taskData.notes;
+                            tasks[taskIndex].recurrence.duration = duration;
+                            tasks[taskIndex].recurrence.durationUnit = durationUnit;
+                            tasks[taskIndex].recurrence.type = taskData.recurrence.type;
+                            tasks[taskIndex].updated_at = now;
+                            
+                            // 清除旧的重复规则，确保所有旧模式的属性都被清除
+                            delete tasks[taskIndex].recurrence.weekdays;
+                            delete tasks[taskIndex].recurrence.days;
+                            delete tasks[taskIndex].recurrence.count;
+                            delete tasks[taskIndex].recurrence.unit;
+                            delete tasks[taskIndex].recurrence.startTimes;
+                            delete tasks[taskIndex].recurrence.startTime;
+                            delete tasks[taskIndex].recurrence.weeklyRepeatType;
+                            delete tasks[taskIndex].recurrence.dailyRepeatType;
+                            delete tasks[taskIndex].recurrence.monthlyRepeatType;
+                            delete tasks[taskIndex].recurrence.rangeStart;
+                            delete tasks[taskIndex].recurrence.rangeEnd;
+                            delete tasks[taskIndex].recurrence.intervalCount;
+                            delete tasks[taskIndex].recurrence.intervalUnit;
+                            delete tasks[taskIndex].recurrence.endDate;
+                            delete tasks[taskIndex].recurrence.endTime;
+                            delete tasks[taskIndex].recurrence.monthweekdays;
+                            delete tasks[taskIndex].recurrence.pattern;
+                            
+                            // 根据重复类型添加相应的规则
+                            switch(taskData.recurrence.type) {
+                                case "none":
+                                    // 不重复事件不需要额外的重复规则
+                                    break;
+                                case "daily":
+                                    // 每天重复
+                                    const localDailyStartTimes = taskData.recurrence?.startTimes || [];
+                                    tasks[taskIndex].recurrence.startTimes = localDailyStartTimes.length > 0 ? localDailyStartTimes : [taskData.startTime];
+                                    tasks[taskIndex].recurrence.dailyRepeatType = taskData.recurrence?.dailyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[taskIndex].recurrence.dailyRepeatType === 'time-range') {
+                                        tasks[taskIndex].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[taskIndex].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "weekly":
+                                    const localWeekdays = taskData.recurrence?.weekdays || taskData.weekdays || [];
+                                    const localStartTimes = taskData.recurrence?.startTimes || [];
+                                    tasks[taskIndex].recurrence.weekdays = localWeekdays.length > 0 ? localWeekdays : [1];
+                                    tasks[taskIndex].recurrence.startTimes = localStartTimes.length > 0 ? localStartTimes : [taskData.startTime];
+                                    tasks[taskIndex].recurrence.weeklyRepeatType = taskData.recurrence?.weeklyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[taskIndex].recurrence.weeklyRepeatType === 'time-range') {
+                                        tasks[taskIndex].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[taskIndex].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "monthly":
+                                    const localMonthDays = taskData.recurrence?.monthdays || taskData.startDates || [];
+                                    tasks[taskIndex].recurrence.days = localMonthDays.length > 0 ? localMonthDays : [1];
+                                    tasks[taskIndex].recurrence.startTimes = taskData.recurrence?.startTimes?.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime];
+                                    tasks[taskIndex].recurrence.monthlyRepeatType = taskData.recurrence?.monthlyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[taskIndex].recurrence.monthlyRepeatType === 'time-range') {
+                                        tasks[taskIndex].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[taskIndex].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[taskIndex].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[taskIndex].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "interval":
+                                    tasks[taskIndex].recurrence.count = taskData.recurrence?.intervalCount || taskData.intervalCount || 1;
+                                    tasks[taskIndex].recurrence.unit = taskData.recurrence?.intervalUnit || taskData.intervalUnit || "day";
+                                    // 保存结束时间到本地存储
+                                    tasks[taskIndex].recurrence.endDate = taskData.recurrence?.endDate || '';
+                                    tasks[taskIndex].recurrence.endTime = taskData.recurrence?.endTime || '';
+                                    break;
+                                case "monthly_interval":
+                                    // 处理每月+间隔类型
+                                    const localMonthlyIntervalDays = taskData.recurrence?.monthlyIntervalDays || [];
+                                    tasks[taskIndex].recurrence.days = localMonthlyIntervalDays.length > 0 ? localMonthlyIntervalDays : [1];
+                                    tasks[taskIndex].recurrence.count = taskData.recurrence?.intervalCount || 1;
+                                    tasks[taskIndex].recurrence.unit = taskData.recurrence?.intervalUnit || "month";
+                                    tasks[taskIndex].recurrence.startTimes = [tasks[taskIndex].startTime];
+                                    break;
+                            }
+                            
+                            // 保存到localStorage
+                            await saveData(tasks);
+                            showNotification('事件已在本地更新', false);
+                        }
+                    } else {
+                        // 更新本地数据，与index.html的updateExistingTask函数逻辑保持一致
+                        const index = tasks.findIndex(t => t.id === id);
+                        if (index !== -1) {
+                            // 保存原始任务数据，用于回滚
+                            const originalTask = JSON.parse(JSON.stringify(tasks[index]));
+                            
+                            // 更新基本字段
+                            tasks[index].name = taskData.name;
+                            tasks[index].priority = taskData.priority;
+                            tasks[index].displayThreshold = taskData.displayThreshold;
+                            tasks[index].displayThresholdUnit = taskData.displayThresholdUnit;
+                            tasks[index].startDate = taskData.startDate;
+                            tasks[index].startTime = taskData.startTime;
+                            tasks[index].duration = taskData.duration;
+                            tasks[index].durationUnit = taskData.durationUnit;
+                            tasks[index].location = taskData.location;
+                            tasks[index].notes = taskData.notes;
+                            // 移除顶级recurrenceType字段，仅使用recurrence.type字段
+                            
+                            // 确保recurrence对象存在
+                            if (!tasks[index].recurrence) {
+                                tasks[index].recurrence = {};
+                            }
+                            
+                            // 更新recurrence对象的基本属性
+                            tasks[index].recurrence.duration = parseInt(taskData.duration) || 10;
+                            tasks[index].recurrence.durationUnit = taskData.durationUnit || "minute";
+                            tasks[index].recurrence.type = taskData.recurrence.type;
+                            
+                            // 清除旧的重复规则，确保所有旧模式的属性都被清除
+                            delete tasks[index].recurrence.weekdays;
+                            delete tasks[index].recurrence.days;
+                            delete tasks[index].recurrence.count;
+                            delete tasks[index].recurrence.unit;
+                            delete tasks[index].recurrence.startTimes;
+                            delete tasks[index].recurrence.startTime;
+                            delete tasks[index].recurrence.weeklyRepeatType;
+                            delete tasks[index].recurrence.dailyRepeatType;
+                            delete tasks[index].recurrence.monthlyRepeatType;
+                            delete tasks[index].recurrence.rangeStart;
+                            delete tasks[index].recurrence.rangeEnd;
+                            delete tasks[index].recurrence.intervalCount;
+                            delete tasks[index].recurrence.intervalUnit;
+                            delete tasks[index].recurrence.endDate;
+                            delete tasks[index].recurrence.endTime;
+                            delete tasks[index].recurrence.monthweekdays;
+                            delete tasks[index].recurrence.pattern;
+                            
+                            // 根据重复类型更新相应的规则
+                            switch(taskData.recurrence.type) {
+                                case "none":
+                                    // 不重复事件不需要额外的重复规则
+                                    break;
+                                case "daily":
+                                    tasks[index].recurrence.startTimes = taskData.recurrence?.startTimes || taskData.startTimes || ['00:00'];
+                                    // 为daily类型任务设置startTime，使用第一个开始时间
+                                    tasks[index].startTime = tasks[index].recurrence.startTimes[0] || '00:00';
+                                    tasks[index].recurrence.dailyRepeatType = taskData.recurrence?.dailyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[index].recurrence.dailyRepeatType === 'time-range') {
+                                        tasks[index].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[index].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[index].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[index].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "weekly":
+                                    tasks[index].recurrence.weekdays = taskData.recurrence?.weekdays || taskData.weekdays || [1];
+                                    tasks[index].recurrence.startTimes = taskData.recurrence?.startTimes || taskData.startTimes || ['00:00'];
+                                    // 为weekly类型任务设置startTime，使用第一个开始时间
+                                    tasks[index].startTime = tasks[index].recurrence.startTimes[0] || '00:00';
+                                    tasks[index].recurrence.weeklyRepeatType = taskData.recurrence?.weeklyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[index].recurrence.weeklyRepeatType === 'time-range') {
+                                        tasks[index].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[index].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[index].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[index].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "monthly":
+                                    tasks[index].recurrence.days = taskData.recurrence?.monthdays || taskData.startDates || [1];
+                                    tasks[index].recurrence.startTimes = taskData.recurrence?.startTimes || [];
+                                    tasks[index].recurrence.monthlyRepeatType = taskData.recurrence?.monthlyRepeatType || 'time-points';
+                                    
+                                    // 只有在time-range模式下才添加时间段相关属性
+                                    if (tasks[index].recurrence.monthlyRepeatType === 'time-range') {
+                                        tasks[index].recurrence.rangeStart = taskData.recurrence?.rangeStart;
+                                        tasks[index].recurrence.rangeEnd = taskData.recurrence?.rangeEnd;
+                                        tasks[index].recurrence.intervalCount = taskData.recurrence?.intervalCount;
+                                        tasks[index].recurrence.intervalUnit = taskData.recurrence?.intervalUnit;
+                                    }
+                                    break;
+                                case "interval":
+                                    tasks[index].recurrence.count = taskData.recurrence?.intervalCount || taskData.intervalCount || 1;
+                                    tasks[index].recurrence.unit = taskData.recurrence?.intervalUnit || taskData.intervalUnit || "day";
+                                    // 保存结束时间
+                                    tasks[index].recurrence.endDate = taskData.recurrence?.endDate || '';
+                                    tasks[index].recurrence.endTime = taskData.recurrence?.endTime || '';
+                                    break;
+                                case "monthly_interval":
+                                    tasks[index].recurrence.days = taskData.recurrence?.monthlyIntervalDays || [1];
+                                    tasks[index].recurrence.count = taskData.recurrence?.intervalCount || 1;
+                                    tasks[index].recurrence.unit = taskData.recurrence?.intervalUnit || "month";
+                                    tasks[index].recurrence.startTimes = [tasks[index].startTime];
+                                    break;
+                            }
+                            
+                            // 保存到localStorage
+                            await saveData(tasks);
+                        }
+                        showNotification('事件已更新');
+                    }
+                } else {
+                    // 添加新任务 - 不传递id，让Supabase自动生成，并返回生成的id
+                    result = await supabase
+                        .from('tasks_13')
+                        .insert([supabaseTaskData])
+                        .select('id');
+                    
+                    if (result.error) {
+                        console.log('Supabase 添加失败，使用本地存储添加:', result.error);
+                        // 使用本地模式添加任务，与index.html的addNewTask函数逻辑保持一致
+                        const duration = parseInt(taskData.duration) || 10;
+                        const durationUnit = taskData.durationUnit || "minute";
+                        const now = new Date().toISOString();
+                        
+                        // 生成新ID：当前最大ID加1
+                        const maxId = tasks.length > 0 ? Math.max(...tasks.map(task => task.id)) : 0;
+                        const newId = maxId + 1;
+                        
+                        const newTask = {
+                            name: taskData.name,
+                            startDate: taskData.startDate || new Date().toISOString().split('T')[0],
+                            startTime: taskData.startTime || new Date().toTimeString().split(':').slice(0, 2).join(':'),
+                            displayThreshold: taskData.displayThreshold,
+                            displayThresholdUnit: taskData.displayThresholdUnit || "minute",
+                            priority: taskData.priority,
+                            duration: duration,
+                            durationUnit: durationUnit,
+                            location: taskData.location,
+                            notes: taskData.notes,
+                            id: newId,
+                            created_at: now,
+                            updated_at: now,
+                            recurrence: {
+                                duration: duration,
+                                durationUnit: durationUnit,
+                                type: taskData.recurrence.type
+                            }
+                        };
+                        
+                        // 根据重复类型添加相应的规则
+                        switch(taskData.recurrence.type) {
+                            case "none":
+                                // 不重复事件不需要额外的重复规则
+                                break;
+                            case "daily":
+                                newTask.recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime || '00:00'];
+                                // 为daily类型任务设置startTime，使用第一个开始时间
+                                newTask.startTime = newTask.recurrence.startTimes[0] || '00:00';
+                                break;
+                            case "weekly":
+                                newTask.recurrence.weekdays = taskData.recurrence.weekdays.length > 0 ? taskData.recurrence.weekdays : [1];
+                                newTask.recurrence.startTimes = taskData.recurrence.startTimes.length > 0 ? taskData.recurrence.startTimes : [taskData.startTime || '00:00'];
+                                // 为weekly类型任务设置startTime，使用第一个开始时间
+                                newTask.startTime = newTask.recurrence.startTimes[0] || '00:00';
+                                break;
+                            case "monthly":
+                                newTask.recurrence.days = taskData.recurrence.monthdays.length > 0 ? taskData.recurrence.monthdays : [1];
+                                break;
+                            case "interval":
+                                newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                break;
+                            case "monthly_interval":
+                                newTask.recurrence.days = taskData.recurrence.monthlyIntervalDays.length > 0 ? taskData.recurrence.monthlyIntervalDays : [1];
+                                newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                break;
+                        }
+                        
+                        tasks.push(newTask);
+                        // 保存到localStorage
+                        await saveData(tasks);
+                        showNotification('事件已在本地添加', false);
+                    } else {
+                        // 更新本地数据，使用Supabase生成的id
+                        if (result.data && result.data.length > 0) {
+                            const newTask = { ...supabaseTaskData, id: result.data[0].id };
+                            tasks.push(newTask);
+                            showNotification('事件已添加');
+                        } else {
+                            // 如果无法获取生成的ID，使用本地模式添加
+                            console.log('无法获取Supabase生成的ID，使用本地存储添加');
+                            const duration = parseInt(taskData.duration) || 10;
+                            const durationUnit = taskData.durationUnit || "minute";
+                            
+                            const newTask = {
+                                name: taskData.name,
+                                startDate: taskData.startDate || new Date().toISOString().split('T')[0],
+                                startTime: taskData.startTime || new Date().toTimeString().split(':').slice(0, 2).join(':'),
+                                displayThreshold: taskData.displayThreshold,
+                                displayThresholdUnit: taskData.displayThresholdUnit || "minute",
+                                priority: taskData.priority,
+                                duration: duration,
+                                durationUnit: durationUnit,
+                                location: taskData.location,
+                                notes: taskData.notes,
+                                id: Date.now(),
+                                recurrence: {
+                                    duration: duration,
+                                    durationUnit: durationUnit,
+                                    type: taskData.recurrence.type
+                                }
+                            };
+                            
+                            // 根据重复类型添加相应的规则
+                            switch(taskData.recurrence.type) {
+                                case "weekly":
+                                    newTask.recurrence.weekdays = taskData.recurrence.weekdays.length > 0 ? taskData.recurrence.weekdays : [1];
+                                    break;
+                                case "monthly":
+                                    if (taskData.recurrence.monthweekdays && taskData.recurrence.monthweekdays.length > 0) {
+                                        newTask.recurrence.weekdays = taskData.recurrence.monthweekdays;
+                                    } else if (taskData.recurrence.monthdays.length > 0) {
+                                        newTask.recurrence.days = taskData.recurrence.monthdays;
+                                    } else {
+                                        newTask.recurrence.days = [1];
+                                    }
+                                    break;
+                                case "custom":
+                                    newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                    newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                    break;
+                                case "monthly_interval":
+                                    newTask.recurrence.days = taskData.recurrence.monthlyIntervalDays.length > 0 ? taskData.recurrence.monthlyIntervalDays : [1];
+                                    newTask.recurrence.count = taskData.recurrence.intervalCount;
+                                    newTask.recurrence.unit = taskData.recurrence.intervalUnit;
+                                    break;
+                            }
+                            
+                            tasks.push(newTask);
+                            await saveData(tasks);
+                            showNotification('事件已在本地添加', false);
+                        }
+                    }
+                }
+                
+                // 更新localStorage，确保与前端同步
+                await saveData(tasks);
+                renderTasksTable();
+                taskModal.classList.add('hidden');
+            } catch (error) {
+                console.error('保存任务失败:', error);
+                showNotification('保存任务失败: ' + error.message, true);
+            }
+        });
+        
+        // 切换操作下拉菜单
+        window.toggleActionDropdown = function(taskId) {
+            const dropdown = document.getElementById(`action-dropdown-${taskId}`);
+            // 关闭其他所有下拉菜单
+            document.querySelectorAll('[id^="action-dropdown-"]').forEach(el => {
+                if (el.id !== `action-dropdown-${taskId}`) {
+                    el.classList.add('hidden');
+                }
+            });
+            dropdown.classList.toggle('hidden');
+        };
+        
+        // 点击页面其他地方关闭下拉菜单
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown-btn') && !e.target.closest('[id^="action-dropdown-"]')) {
+                document.querySelectorAll('[id^="action-dropdown-"]').forEach(el => {
+                    el.classList.add('hidden');
+                });
+            }
+        });
+        
+        // 绑定排序事件
+        document.addEventListener('click', (e) => {
+            const th = e.target.closest('th.sortable');
+            if (!th) return;
+            
+            const sortKey = th.dataset.sortKey;
+            if (sortKey === sortConfig.key) {
+                // 切换排序方向
+                sortConfig.direction *= -1;
+            } else {
+                // 新的排序键，默认升序
+                sortConfig.key = sortKey;
+                sortConfig.direction = 1;
+            }
+            
+            // 更新排序指示器 - 不显示任何图标
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            th.classList.add(sortConfig.direction === 1 ? 'sort-asc' : 'sort-desc');
+            
+            // 重新渲染表格
+            renderTasksTable();
+        });
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 设置默认日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            // 更新为none-start-date以匹配输入框ID
+            const dateInput = document.getElementById('none-start-date');
+            if (dateInput) {
+                dateInput.value = today;
+            }
+            
+            // 绑定添加时间点按钮事件
+            const addDailyTimeBtn = document.getElementById('add-daily-time-btn');
+            if (addDailyTimeBtn) {
+                addDailyTimeBtn.addEventListener('click', () => {
+                    addTimePoint('daily-times-container');
+                });
+            }
+            
+            const addWeeklyTimePointBtn = document.getElementById('add-weekly-time-btn');
+            if (addWeeklyTimePointBtn) {
+                addWeeklyTimePointBtn.addEventListener('click', () => {
+                    addTimePoint('weekly-times-container');
+                });
+            }
+            
+            const addMonthlyTimeBtn = document.getElementById('add-monthly-time-btn');
+            if (addMonthlyTimeBtn) {
+                addMonthlyTimeBtn.addEventListener('click', () => {
+                    addTimePoint('monthly-times-container');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

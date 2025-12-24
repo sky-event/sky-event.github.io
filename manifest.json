@@ -1,0 +1,43 @@
+{
+  "name": "Sky 事件",
+  "short_name": "Sky 事件",
+  "description": "Sky 事件时间表",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#60a5fa",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icons/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "破晓红石",
+      "short_name": "破晓红石",
+      "description": "查看破晓红石事件",
+      "url": "./hhs.html",
+      "icons": [{ "src": "./icons/hs.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "国际服事件",
+      "short_name": "国际服",
+      "description": "查看国际服事件",
+      "url": "./index.html",
+      "icons": [{ "src": "./icons/gj.svg", "sizes": "96x96" }]
+    }
+  ],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}
