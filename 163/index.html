@@ -34,13 +34,13 @@
                 // 预加载切换国服页面
                 var link163 = document.createElement('link');
                 link163.rel = 'prefetch';
-                link163.href = './index.html';
+                link163.href = '163/index.html';
                 document.head.appendChild(link163);
                 
                 // 预加载破晓日历页面
                 var linkHHS = document.createElement('link');
                 linkHHS.rel = 'prefetch';
-                linkHHS.href = 'hhs.html';
+                linkHHS.href = 'HHS.html';
                 document.head.appendChild(linkHHS);
             }, 3000); // 3秒后预加载
             
@@ -5119,17 +5119,25 @@
             // 预先定义优先级顺序，避免重复创建对象
             const priorityOrder = { high: 3, medium: 2, low: 1 };
             
+            console.log('=== getVisibleTasks() 调用 ===');
+            console.log('处理任务总数:', tasks.length);
+            
             // 使用for循环替代map+filter，减少数组遍历次数
             for (let i = 0; i < tasks.length; i++) {
                 const task = tasks[i];
                 
+                console.log(`处理任务 ${i+1}/${tasks.length}: ${task.name}, 优先级: ${task.priority}`);
+                
                 // 先过滤掉优先级为none的任务，避免不必要的计算
                 if (task.priority === "none") {
+                    console.log(`  跳过: 优先级为none`);
                     continue;
                 }
                 
                 // 获取任务状态
                 const status = getTaskStatus(task, nowCST);
+                
+                console.log(`  任务状态: ${status.status}, 状态文本: ${status.timeText}`);
                 
                 // 只保留正在进行或即将开始的任务
                 if (status.status !== "completed" && 
@@ -5139,6 +5147,9 @@
                         ...task,
                         ...status
                     });
+                    console.log(`  添加到可见列表`);
+                } else {
+                    console.log(`  跳过: 状态不是ongoing或upcoming`);
                 }
             }
             
@@ -6093,6 +6104,11 @@
 
         // 更新事件显示
         function updateTasks() {
+            // 添加调试信息
+            console.log('=== updateTasks() 调用 ===');
+            console.log('当前tasks数组长度:', tasks.length);
+            console.log('当前tasks数组:', tasks);
+            
             currentVisibleTasks = getVisibleTasks();
             currentAllTasks = getAllTasksWithStatus();
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
@@ -7210,16 +7226,26 @@
             (async () => {
                 // 检查是否有外部数据并加载
                 const savedData = await loadFromSupabase();
-                if (savedData && Array.isArray(savedData)) {
-                    // 如果返回的是数组，直接赋值给tasks
+                if (savedData && Array.isArray(savedData) && savedData.length > 0) {
+                    // 如果返回的是数组且有数据，直接赋值给tasks
+                    console.log('使用云端数据更新tasks数组');
                     tasks = savedData;
-                } else if (savedData && savedData.tasks) {
+                } else if (savedData && savedData.tasks && savedData.tasks.length > 0) {
                     // 兼容旧数据格式
+                    console.log('使用兼容格式的云端数据更新tasks数组');
                     tasks = savedData.tasks;
                 } else {
-                    // 保存初始任务列表
-                    await saveData(tasks);
+                    console.log('云端数据为空或格式不正确，使用硬编数据');
+                    // 如果云端数据为空，使用硬编数据
+                    if (hardcodedTasksData.length > 0) {
+                        tasks = hardcodedTasksData;
+                    } else {
+                        // 保存初始任务列表
+                        await saveData(tasks);
+                    }
                 }
+                
+                console.log('数据加载完成，最终tasks数组长度:', tasks.length);
                 
                 // 数据加载完成后更新任务列表、特殊通知和魔法图标
                 updateTasks();
