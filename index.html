@@ -7216,7 +7216,14 @@
             })();
             
             // 检测Sky文件夹中的图片 - 使用自动检测机制
+            // 添加缓存变量
+            let tpImagesCache = null; // 缓存检测结果
             function detectTPImages() {
+                // 如果已经缓存了结果，直接返回
+                if (tpImagesCache) {
+                    return Promise.resolve(tpImagesCache);
+                }
+                
                 return new Promise((resolve) => {
                     const maxImages = 50; // 最多检测50张图片
                     const foundImages = Array(maxImages * 2).fill(null); // 创建固定长度数组
@@ -7279,6 +7286,8 @@
                         
                         // 将本地图片添加到结果列表
                         const finalImages = [...validImages, ...localImages];
+                        // 缓存检测结果
+                        tpImagesCache = finalImages;
                         resolve(finalImages);
                     }
                 });
