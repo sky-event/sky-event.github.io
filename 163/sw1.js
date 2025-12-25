@@ -1,5 +1,5 @@
-// 缓存版本号 - 升级版本以强制更新
-const CACHE_VERSION = 'v1.0.1';
+// 缓存版本号
+const CACHE_VERSION = 'v1.0.0';
 const CACHE_NAME = `sky-events-${CACHE_VERSION}`;
 
 // 需要缓存的资源列表
@@ -53,21 +53,6 @@ self.addEventListener('fetch', (event) => {
   // 仅缓存GET请求
   if (event.request.method !== 'GET') {
     return;
-  }
-  
-  // 不缓存Supabase API请求
-  const requestUrl = new URL(event.request.url);
-  if (requestUrl.hostname.includes('supabase.co')) {
-    // 对于Supabase请求，直接从网络获取，不使用缓存
-    return event.respondWith(
-      fetch(event.request).catch(() => {
-        // 网络请求失败时，返回503状态
-        return new Response('Service Unavailable', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain' }
-        });
-      })
-    );
   }
   
   event.respondWith(
