@@ -3501,7 +3501,7 @@
             }
             
             // GitHub Pages 配置
-            const githubRepo = 'Asan-13/Asan-13.github.io';
+            const githubRepo = 'sky-event/sky-event.github.io';
             const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/${folderName}`;
             
             // 加载图片函数 - 支持本地缓存图片、本地文件和云端图片
@@ -5553,7 +5553,7 @@
             
             // 3. 配置GitHub图库信息
             const githubUsername = 'Asan-13';
-            const githubRepo = 'Asan-13.github.io';
+            const githubRepo = 'sky-event.github.io';
             const githubBranch = 'main';
             const basePath = 'SS/sky/TRAE/images/event-bg';
             // 使用毫秒级时间戳，确保每次刷新都能获取最新图片
@@ -7270,7 +7270,7 @@
                             
                             // 预加载云端图片
                             const cloudImg = new Image();
-                            const githubRepo = 'Asan-13/Asan-13.github.io';
+                            const githubRepo = 'sky-event/sky-event.github.io';
                             const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/Sky`;
                             cloudImg.src = `${githubImageBaseUrl}/${imageName}`;
                         });
@@ -7292,10 +7292,10 @@
                 }
                 
                 return new Promise((resolve) => {
-                    const maxImages = 50; // 最多检测50张图片
+                    const maxImages = 10; // 最多检测10张图片
                     const foundImages = Array(maxImages * 2).fill(null); // 创建固定长度数组
                     let checked = 0;
-                    let totalToCheck = maxImages * 2; // 同时检查PNG和JPG格式
+                    let totalToCheck = maxImages * 2; // 同时检查PNG和WEBP格式
                     
                     // 检测数字命名的图片（如1.png, 1.jpg, 2.png, 2.jpg等）
                     for (let i = 1; i <= maxImages; i++) {
@@ -7317,23 +7317,23 @@
                         };
                         pngImg.src = `./images/Sky/${pngImageName}?t=${Date.now()}`; // 加时间戳防止缓存
                         
-                        // 检测JPG格式
-                        const jpgImageName = `${i}.jpg`;
-                        const jpgImg = new Image();
-                        jpgImg.onload = () => {
-                            foundImages[(i - 1) * 2 + 1] = jpgImageName; // 按序号放入对应位置
+                        // 检测WEBP格式
+                        const webpImageName = `${i}.webp`;
+                        const webpImg = new Image();
+                        webpImg.onload = () => {
+                            foundImages[(i - 1) * 2 + 1] = webpImageName; // 按序号放入对应位置
                             checked++;
                             if (checked === totalToCheck) {
                                 addLocalImagesAndResolve();
                             }
                         };
-                        jpgImg.onerror = () => {
+                        webpImg.onerror = () => {
                             checked++;
                             if (checked === totalToCheck) {
                                 addLocalImagesAndResolve();
                             }
                         };
-                        jpgImg.src = `./images/Sky/${jpgImageName}?t=${Date.now()}`; // 加时间戳防止缓存
+                        webpImg.src = `./images/Sky/${webpImageName}?t=${Date.now()}`; // 加时间戳防止缓存
                     }
                     
                     // 添加本地缓存图片并返回结果
@@ -7826,7 +7826,7 @@
                 function detectImages(dayIndex) {
                     return new Promise((resolve) => {
                         const folderName = `l${dayIndex + 1}`;
-                        const maxImages = 50; // 最多检测50张图片
+                        const maxImages = 3; // 最多检测3张图片
                         const foundImages = Array(maxImages).fill(null); // 创建固定长度数组
                         let checked = 0;
                         
@@ -7845,10 +7845,10 @@
                             .then(files => {
                                 // 处理GitHub API返回的文件列表
                                 files.forEach(file => {
-                                    // 支持PNG和JPG格式
-                                    if (file.name.endsWith('.png') || file.name.endsWith('.jpg')) {
+                                    // 支持PNG和WEBP格式
+                                    if (file.name.endsWith('.png') || file.name.endsWith('.webp')) {
                                         // 提取数字部分
-                                        const numStr = file.name.match(/^(\d+)\.(png|jpg)$/);
+                                        const numStr = file.name.match(/^(\d+)\.(png|webp)$/);
                                         if (numStr) {
                                             const index = parseInt(numStr[1]) - 1;
                                             if (index >= 0 && index < maxImages) {
@@ -7872,10 +7872,10 @@
                                 checkLocalImages();
                             });
                         
-                        // 检测本地数字命名的图片（如1.png, 2.jpg等）
+                        // 检测本地数字命名的图片（如1.png, 2.webp等）
                         function checkLocalImages() {
-                            // 同时检测PNG和JPG格式
-                            const extensions = ['.png', '.jpg'];
+                            // 同时检测PNG和WEBP格式
+                            const extensions = ['.png', '.webp'];
                             let totalChecks = maxImages * extensions.length;
                             
                             for (let i = 1; i <= maxImages; i++) {
