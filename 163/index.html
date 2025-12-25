@@ -2933,25 +2933,24 @@
                 
                 // 检查supabase是否已正确初始化
                 if (!supabase || typeof supabase.from !== 'function') {
-                    console.log('Supabase未正确初始化，使用localStorage数据');
+                    console.log('Supabase未正确初始化，使用空数据');
                     // 显示Supabase未初始化通知
-                    showNotification('Supabase未初始化，当前处于本地存储模式', false);
-                    const localData = loadFromLocalStorage() || [];
-                    console.log('从localStorage加载的数据:', localData ? localData.length : 0, '个任务');
-                    return localData;
+                    showNotification('Supabase未初始化，无法加载最新数据', false);
+                    return [];
                 }
                 
-                // 获取本地存储的数据
-                const localData = loadFromLocalStorage() || [];
-                console.log('本地数据:', localData.length, '个任务');
-                console.log('本地数据样例:', localData.slice(0, 1));
+                // 不再使用本地缓存，直接从云端获取最新数据
+                console.log('开始从Supabase请求最新数据...');
                 
+                // 修复请求详情，表名应为tasks_13
                 console.log('开始从Supabase请求数据...');
-                console.log('请求详情: 表名=tasks, 操作=select(*), 方式=GET');
+                console.log('请求详情: 表名=tasks_13, 操作=select(*), 方式=GET');
                 console.log('请求URL:', supabaseUrl);
                 
                 let remoteData = null;
                 let supabaseError = null;
+                // 不再使用本地缓存数据
+                const localData = [];
                 
                 try {
                     // 单独的try-catch来捕获fetch错误
@@ -2981,17 +2980,17 @@
                         console.error('错误详情:', supabaseError.details);
                         
                         // 根据错误类型显示不同的通知
-                        let errorMessage = '从Supabase加载数据失败，正在尝试使用最新缓存';
+                        let errorMessage = '从Supabase加载数据失败，无法获取最新数据';
                         if (supabaseError.code === 'PGRST301' || supabaseError.code === 'PGRST300') {
-                            errorMessage = 'Supabase表不存在或权限不足，使用本地存储数据';
+                            errorMessage = 'Supabase表不存在或权限不足，无法获取最新数据';
                         } else if (supabaseError.code === '42501') {
-                            errorMessage = 'Supabase权限错误，使用本地存储数据';
+                            errorMessage = 'Supabase权限错误，无法获取最新数据';
                         }
                         
                         // 显示加载失败通知
                         showNotification(errorMessage, false);
-                        // 如果从Supabase加载失败，尝试从localStorage加载
-                        return localData;
+                        // 不再使用本地缓存数据，直接返回空数组
+                        return [];
                     }
                 } catch (fetchError) {
                     // 专门捕获fetch错误
@@ -3002,17 +3001,17 @@
                     console.error('fetch错误堆栈:', fetchError.stack);
                     
                     // 根据错误类型显示不同的通知
-                    let errorMessage = '网络请求失败，正在尝试使用最新缓存';
+                    let errorMessage = '网络请求失败，无法获取最新数据';
                     if (fetchError.name === 'AbortError') {
-                        errorMessage = '请求超时，正在尝试使用最新缓存';
+                        errorMessage = '请求超时，无法获取最新数据';
                     } else if (fetchError.name === 'TypeError' && fetchError.message === 'Failed to fetch') {
                         errorMessage = '无法连接到Supabase服务器，请检查网络连接';
                     }
                     
                     // 显示加载失败通知
                     showNotification(errorMessage, false);
-                    // 使用本地存储数据作为回退
-                    return localData;
+                    // 不再使用本地存储数据作为回退，直接返回空数组
+                    return [];
                 }
                 
                 console.log('从Supabase获取到的数据:', remoteData ? remoteData.length : 0, '个任务');
@@ -3036,46 +3035,32 @@
                         return task;
                     });
                     
-                    // 合并本地和远程数据，基于时间戳
-                    console.log('开始合并本地和云端数据...');
-                    const mergedData = mergeData(localData, processedRemoteData);
+                    // 不再合并本地数据，直接使用云端最新数据
+                    console.log('直接使用云端最新数据，不合并本地缓存');
                     
-                    // 将合并后的数据保存到localStorage
-                    localStorage.setItem('timeProjectReminderTasks', JSON.stringify(mergedData));
-                    console.log('合并后的数据已保存到localStorage');
+                    // 将最新数据保存到localStorage
+                    localStorage.setItem('timeProjectReminderTasks', JSON.stringify(processedRemoteData));
+                    console.log('最新数据已保存到localStorage');
                     
-                    // 验证合并结果
-                    console.log('合并前后数据对比:');
+                    // 验证云端数据
+                    console.log('云端数据验证:');
                     console.log('  本地:', localData.length, '个任务');
                     console.log('  云端:', remoteData.length, '个任务');
-                    console.log('  合并后:', mergedData.length, '个任务');
+                    console.log('  使用云端任务数量:', processedRemoteData.length, '个任务');
                     
-                    // 分析合并结果
-                    const addedTasks = mergedData.filter(task => 
-                        !localData.some(local => local.id === task.id)
-                    );
-                    const updatedTasks = mergedData.filter(task => {
-                        const localTask = localData.find(local => local.id === task.id);
-                        return localTask && new Date(task.updated_at) > new Date(localTask.updated_at);
-                    });
-                    
-                    console.log('合并分析:');
-                    console.log('  新增任务:', addedTasks.length, '个');
-                    console.log('  更新任务:', updatedTasks.length, '个');
+                    // 分析云端数据
+                    console.log('云端数据分析:');
+                    console.log('  成功获取最新数据');
                     
                     // 显示云端数据加载成功通知
-                    showNotification('云端数据加载成功', false);
-                    return mergedData;
+                    showNotification('云端最新数据加载成功', false);
+                    return processedRemoteData;
                 } else {
-                    // 如果Supabase返回空数据，尝试从localStorage加载
-                    console.log('Supabase返回空数据，使用localStorage数据');
+                    // 如果Supabase返回空数据，返回空数组
+                    console.log('Supabase返回空数据，使用空数据');
                     // 显示Supabase返回空数据通知
-                    showNotification('Supabase中没有数据，使用本地存储数据', false);
-                    // 检查是否需要将本地数据推送到Supabase
-                    if (localData.length > 0) {
-                        console.log('检测到本地有数据，建议将本地数据推送到Supabase');
-                    }
-                    return localData;
+                    showNotification('Supabase中没有数据，使用空数据', false);
+                    return [];
                 }
             } catch (e) {
                 console.error('从Supabase加载时发生异常:', e);
@@ -3083,19 +3068,17 @@
                 console.error('异常堆栈:', e.stack);
                 
                 // 更详细地分析异常类型
-                let errorMessage = '从Supabase加载数据异常，使用本地存储数据';
+                let errorMessage = '从Supabase加载数据异常，无法获取最新数据';
                 if (e.name === 'NetworkError' || (e.name === 'TypeError' && e.message.includes('network'))) {
-                    errorMessage = '网络连接异常，当前处于本地存储模式';
+                    errorMessage = '网络连接异常，无法获取最新数据';
                 } else if (e.name === 'TimeoutError') {
-                    errorMessage = '请求超时，当前处于本地存储模式';
+                    errorMessage = '请求超时，无法获取最新数据';
                 }
                 
                 // 显示加载异常通知
                 showNotification(errorMessage, true);
-                // 如果从Supabase加载失败，尝试从localStorage加载
-                const localData = loadFromLocalStorage() || [];
-                console.log('从localStorage加载的数据:', localData ? localData.length : 0, '个任务');
-                return localData;
+                // 不再使用本地存储数据作为回退，直接返回空数组
+                return [];
             } finally {
                 console.log('=== 从Supabase加载数据完成 ===');
             }
@@ -7224,6 +7207,10 @@
             
             // 异步加载数据，不阻塞UI
             (async () => {
+                // 清除localStorage缓存，确保每次都加载最新的云端数据
+                console.log('清除localStorage缓存，确保加载最新云端数据');
+                localStorage.removeItem('timeProjectReminderTasks');
+                
                 // 检查是否有外部数据并加载
                 const savedData = await loadFromSupabase();
                 if (savedData && Array.isArray(savedData) && savedData.length > 0) {
