@@ -3781,6 +3781,26 @@
                         // 使用loadImage函数加载图片
                         loadImage(imageList[currentIndex], largeImage);
                         
+                        // 预加载下一张图片
+                        if (imageList.length > 1) {
+                            const nextIndex = (currentIndex + 1) % imageList.length;
+                            const preloadImg = new Image();
+                            const nextImageName = imageList[nextIndex];
+                            
+                            if (!nextImageName.startsWith('local_')) {
+                                // 常规图片预加载
+                                const githubUrl = `${githubImageBaseUrl}/${nextImageName}`;
+                                const localUrl = `./images/${folderName}/${nextImageName}`;
+                                
+                                // 先预加载本地图片
+                                preloadImg.src = localUrl;
+                                preloadImg.onerror = () => {
+                                    // 本地图片加载失败，预加载云端图片
+                                    preloadImg.src = githubUrl;
+                                };
+                            }
+                        }
+                        
                         // 图片加载完成后添加淡入效果
                         largeImage.onload = () => {
                             largeImage.style.transition = 'opacity 0.3s ease-in';
@@ -7227,8 +7247,44 @@
                 initMagicIcons(); // 重新初始化魔法图标，使用最新的云端数据
             })();
             
+            // 页面初始化时预检测图片并预加载，减少用户点击按钮时的等待时间
+            (() => {
+                // 异步检测图片，不阻塞页面加载
+                detectTPImages().then(tpImages => {
+                    console.log('图片预检测完成，已缓存结果，开始预加载图片');
+                    
+                    // 预加载图片内容
+                    if (tpImages && tpImages.length > 0) {
+                        // 只预加载前5张图片，避免一次性加载过多
+                        const imagesToPreload = tpImages.slice(0, 5);
+                        
+                        imagesToPreload.forEach(imageName => {
+                            if (imageName.startsWith('local_')) {
+                                // 本地缓存图片，无需预加载
+                                return;
+                            }
+                            
+                            // 预加载本地图片
+                            const localImg = new Image();
+                            localImg.src = `./images/Sky/${imageName}`;
+                            
+                            // 预加载云端图片
+                            const cloudImg = new Image();
+                            const githubRepo = 'Asan-13/Asan-13.github.io';
+                            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/Sky`;
+                            cloudImg.src = `${githubImageBaseUrl}/${imageName}`;
+                        });
+                        
+                        console.log('预加载完成，已缓存前5张图片');
+                    }
+                }).catch(err => {
+                    console.log('图片预检测失败:', err);
+                });
+            })();
+            
             // 检测Sky文件夹中的图片 - 使用自动检测机制，添加缓存优化
-            let tpImagesCache = null; // 缓存检测结果
+            // 使用var声明确保变量提升
+            var tpImagesCache = null; // 缓存检测结果
             function detectTPImages() {
                 // 如果已经缓存了结果，直接返回
                 if (tpImagesCache) {
