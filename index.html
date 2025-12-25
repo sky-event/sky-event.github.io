@@ -42,7 +42,7 @@
                 // 预加载破晓日历页面
                 var linkHHS = document.createElement('link');
                 linkHHS.rel = 'prefetch';
-                linkHHS.href = 'hhs.html';
+                linkHHS.href = 'HHS.html';
                 document.head.appendChild(linkHHS);
             }, 3000); // 3秒后预加载
             
@@ -2012,9 +2012,27 @@
             applyTheme(theme) {
                 document.documentElement.setAttribute('data-theme', theme);
                 this.currentTheme = theme;
+                this.updateThemeColor(theme);
                 this.updateThemeIcon();
                 this.updateTooltips();
                 this.saveTheme(theme);
+            }
+            
+            // 更新主题色（影响浏览器地址栏和任务栏）
+            updateThemeColor(theme) {
+                // 根据主题选择对应的主题色
+                const themeColor = theme === 'dark' ? '#1e293b' : '#FFF5F7';
+                
+                // 更新meta标签
+                let themeMeta = document.querySelector('meta[name="theme-color"]');
+                if (themeMeta) {
+                    themeMeta.setAttribute('content', themeColor);
+                }
+                
+                // 如果在Service Worker环境中，尝试更新manifest
+                if (self.registration && 'update' in self.registration) {
+                    self.registration.update();
+                }
             }
 
             // 更新词条提示器样式

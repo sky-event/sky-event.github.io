@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky 事件</title>
+    
+    <!-- PWA相关元标签 -->
     <meta name="theme-color" content="#60a5fa">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="光·遇 事件">
-    <meta name="description" content="光遇事件时间表">
+    <meta name="apple-mobile-web-app-title" content="Sky 事件">
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icons/logo-192.png">
     <link rel="icon" href="./icons/favicon.png" type="image/png">
-    <title>光·遇 事件</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="./libs/font-awesome/css/font-awesome.min.css" rel="stylesheet">
     <script src="./libs/@supabase/supabase-js/dist/umd/supabase.js"></script>
@@ -40,17 +42,12 @@
                 // 预加载破晓日历页面
                 var linkHHS = document.createElement('link');
                 linkHHS.rel = 'prefetch';
-                linkHHS.href = 'HHS.html';
+                linkHHS.href = 'hhs.html';
                 document.head.appendChild(linkHHS);
             }, 3000); // 3秒后预加载
             
             // 添加窗口大小变化事件监听器，确保特殊通知容器与主容器等宽
-            // 确保syncNotificationWidth函数已定义
-            document.addEventListener('DOMContentLoaded', function() {
-                if (typeof syncNotificationWidth === 'function') {
-                    window.addEventListener('resize', syncNotificationWidth);
-                }
-            });
+            window.addEventListener('resize', syncNotificationWidth);
         });
     </script>
     
@@ -891,16 +888,7 @@
         // 主题初始化 - 在DOM加载前设置主题，避免颜色闪烁
         (function() {
             const storedTheme = localStorage.getItem('theme');
-            // 检测系统主题偏好，如果没有存储的主题
-            let initialTheme = storedTheme;
-            if (!initialTheme) {
-                // 检查系统主题偏好
-                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    initialTheme = 'dark';
-                } else {
-                    initialTheme = 'light'; // 默认使用浅色主题
-                }
-            }
+            const initialTheme = storedTheme || 'dark'; // 默认使用深色主题
             document.documentElement.setAttribute('data-theme', initialTheme);
         })();
     </script>
@@ -941,9 +929,9 @@
 
         
         <!-- 添加163图标链接 -->
-        <div id="163-icon" class="lock-indicator" style="right: auto; left: 1rem;" title="切换国际服">
+        <div id="163-icon" class="lock-indicator" style="right: auto; left: 1rem;" title="切换国服">
             <a href="163/index.html" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
-                <img src="icons/zg.svg" alt="163" style="width: 20px; height: 20px;">
+                <img src="icons/gjf.png" alt="163" style="width: 20px; height: 20px;">
             </a>
         </div>
         
@@ -1938,16 +1926,11 @@
         // 喷射光斑函数
         function spraySpots() {
             // 获取下载按钮的位置信息
-            if (typeof downloadBtn === 'undefined') {
-                downloadBtn = document.getElementById('download-btn');
-            }
-            if (downloadBtn) {
-                const btnRect = downloadBtn.getBoundingClientRect();
-                // 将起点设置在下载按钮附近
-                const x = btnRect.left + btnRect.width / 2;
-                const y = btnRect.top + btnRect.height / 2;
-                spraySpotsAtPosition(x, y);
-            }
+            const btnRect = downloadBtn.getBoundingClientRect();
+            // 将起点设置在下载按钮附近
+            const x = btnRect.left + btnRect.width / 2;
+            const y = btnRect.top + btnRect.height / 2;
+            spraySpotsAtPosition(x, y);
         }
         
         // 动画循环
@@ -2029,27 +2012,9 @@
             applyTheme(theme) {
                 document.documentElement.setAttribute('data-theme', theme);
                 this.currentTheme = theme;
-                this.updateThemeColor(theme);
                 this.updateThemeIcon();
                 this.updateTooltips();
                 this.saveTheme(theme);
-            }
-            
-            // 更新主题色（影响浏览器地址栏和任务栏）
-            updateThemeColor(theme) {
-                // 根据主题选择对应的主题色
-                const themeColor = theme === 'dark' ? '#1e293b' : '#FFF5F7';
-                
-                // 更新meta标签
-                let themeMeta = document.querySelector('meta[name="theme-color"]');
-                if (themeMeta) {
-                    themeMeta.setAttribute('content', themeColor);
-                }
-                
-                // 如果在Service Worker环境中，尝试更新manifest
-                if (self.registration && 'update' in self.registration) {
-                    self.registration.update();
-                }
             }
 
             // 更新词条提示器样式
@@ -2101,13 +2066,26 @@
             }
 
             // 初始化
-            init() {
-                this.applyTheme(this.currentTheme);
-                this.watchSystemTheme();
-            }
+        init() {
+            this.applyTheme(this.currentTheme);
+            this.watchSystemTheme();
         }
+    }
 
-        // ==================== 时区转换工具 ====================
+    // ==================== Service Worker 注册 ====================
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then((registration) => {
+                    console.log('Service Worker 注册成功:', registration.scope);
+                })
+                .catch((error) => {
+                    console.error('Service Worker 注册失败:', error);
+                });
+        });
+    }
+
+    // ==================== 时区转换工具 ====================
         const TimeZoneUtils = {
             // 判断当前是否处于太平洋夏令时
             isPDT(date = new Date()) {
@@ -2136,14 +2114,22 @@
                 return date >= secondSundayInMarch && date < firstSundayInNovember;
             },
             
-            // 太平洋时间到北京时间的转换 - 已关闭时区转换功能
+            // 太平洋时间到北京时间的转换
             PDTtoCST(pdtDate) {
-                return pdtDate; // 直接返回原始日期，不再进行时区转换
+                // 根据是否处于PDT期间使用不同的偏移量
+                // PST (UTC-8) → CST (UTC+8) = +16小时
+                // PDT (UTC-7) → CST (UTC+8) = +15小时
+                const offsetHours = this.isPDT(pdtDate) ? 15 : 16;
+                return new Date(pdtDate.getTime() + offsetHours * 60 * 60 * 1000);
             },
             
-            // 北京时间到太平洋时间的转换 - 已关闭时区转换功能
+            // 北京时间到太平洋时间的转换
             CSTtoPDT(cstDate) {
-                return cstDate; // 直接返回原始日期，不再进行时区转换
+                // 根据是否处于PDT期间使用不同的偏移量
+                // CST (UTC+8) → PST (UTC-8) = -16小时
+                // CST (UTC+8) → PDT (UTC-7) = -15小时
+                const offsetHours = this.isPDT(cstDate) ? 15 : 16;
+                return new Date(cstDate.getTime() - offsetHours * 60 * 60 * 1000);
             },
             
             // 格式化时间为北京时间显示
@@ -2175,221 +2161,206 @@
         };
 
         // ==================== 破晓红石事件规则 ====================
-        function getDawnRedstoneLocation(date, dayOfWeek) {
-            const dayOfMonth = date.getDate();
-            
-            // 暮土系 (日期: 1,6,11,16,21,26,31)
-            if ([1, 6, 11, 16, 21, 26, 31].includes(dayOfMonth)) {
-                if (dayOfWeek === 5) return "暮土-黑水港湾";
-                if (dayOfWeek === 6) return "暮土-巨兽荒原";
-                if (dayOfWeek === 0) return "暮土-失落方舟";
-            }
-            
-            // 禁阁系 (日期: 2,7,12,17,22,27)
-            if ([2, 7, 12, 17, 22, 27].includes(dayOfMonth)) {
-                if ([5, 6, 0].includes(dayOfWeek)) return "禁阁-星漠海滩";
-            }
-            
-            // 云野系 (日期: 3,8,13,18,23,28)
-            if ([3, 8, 13, 18, 23, 28].includes(dayOfMonth)) {
-                if (dayOfWeek === 5) return "云野-云顶浮石";
-                if (dayOfWeek === 6) return "云野-幽光山洞";
-                if (dayOfWeek === 0) return "云野-圣岛";
-            }
-            
-            // 雨林系 (日期: 4,9,14,19,24,29)
-            if ([4, 9, 14, 19, 24, 29].includes(dayOfMonth)) {
-                if (dayOfWeek === 5) return "雨林-大树屋";
-                if (dayOfWeek === 6) return "雨林-雨林神庙";
-                if (dayOfWeek === 0) return "雨林-秘密花园";
-            }
-            
-            // 霞谷系 (日期: 5,10,15,20,25,30)
-            if ([5, 10, 15, 20, 25, 30].includes(dayOfMonth)) {
-                if ([5, 6].includes(dayOfWeek)) return "霞谷-圆梦村";
-                if (dayOfWeek === 0) return "霞谷-雪隐峰";
-            }
-            
-            return "未知地点";
-        }
-        
-        // 修复：破晓红石事件特殊规则函数
-        function isDawnRedstoneActive(now) {
-            const currentDate = now.getDate();
-            const currentDay = now.getDay();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const currentTime = currentHour * 60 + currentMinute;
-            
-            // 当月的每个周日固定时间段循环事件
-            if (currentDay === 0) {
-                const timeSlots = [
-                    { start: 7*60+8, end: 8*60+0 },
-                    { start: 13*60+8, end: 14*60+0 },
-                    { start: 19*60+8, end: 20*60+0 }
-                ];
+        const DawnRedstoneRules = {
+            // 日期分组规则（基于PDT日期）
+            getDateGroup(pdtDate) {
+                const day = pdtDate.getDate();
+                const weekday = pdtDate.getDay(); // 0=周日, 1=周一, ..., 6=周六
                 
-                for (let slot of timeSlots) {
-                    if (currentTime >= slot.start && currentTime < slot.end) {
-                        const startTime = new Date(now);
-                        startTime.setHours(Math.floor(slot.start/60), slot.start%60, 0, 0);
-                        const endTime = new Date(now);
-                        endTime.setHours(Math.floor(slot.end/60), slot.end%60, 0, 0);
-                        return { 
-                            startTime, 
-                            endTime,
-                            location: getDawnRedstoneLocation(now, currentDay)
-                        };
-                    }
+                // 第一组：1,7,13,19,25,31日（周一、周二取消）
+                const group1 = [1, 7, 13, 19, 25, 31];
+                if (group1.includes(day)) {
+                    return weekday === 1 || weekday === 2 ? null : 'group1';
                 }
-            }
-            
-            // 当月的1号到15号内的每个周六固定时间段循环事件
-            if (currentDay === 6 && currentDate >= 1 && currentDate <= 15) {
-                const timeSlots = [
-                    { start: 10*60+8, end: 11*60+0 },
-                    { start: 14*60+8, end: 15*60+0 },
-                    { start: 22*60+8, end: 23*60+0 }
-                ];
                 
-                for (let slot of timeSlots) {
-                    if (currentTime >= slot.start && currentTime < slot.end) {
-                        const startTime = new Date(now);
-                        startTime.setHours(Math.floor(slot.start/60), slot.start%60, 0, 0);
-                        const endTime = new Date(now);
-                        endTime.setHours(Math.floor(slot.end/60), slot.end%60, 0, 0);
-                        return { 
-                            startTime, 
-                            endTime,
-                            location: getDawnRedstoneLocation(now, currentDay)
-                        };
-                    }
+                // 第二组：3,9,15,21,27日（周二、周三取消）
+                const group2 = [3, 9, 15, 21, 27];
+                if (group2.includes(day)) {
+                    return weekday === 2 || weekday === 3 ? null : 'group2';
                 }
-            }
-            
-            // 当月的16号到当月底内的每个周五固定时间段循环事件
-            if (currentDay === 5 && currentDate >= 16) {
-                const timeSlots = [
-                    { start: 11*60+8, end: 12*60+0 },
-                    { start: 17*60+8, end: 18*60+0 },
-                    { start: 23*60+8, end: 24*60+0 }
-                ];
                 
-                for (let slot of timeSlots) {
-                    let startTime, endTime;
+                // 第三组：5,11,17,23,29日（周三、周四取消）
+                const group3 = [5, 11, 17, 23, 29];
+                if (group3.includes(day)) {
+                    return weekday === 3 || weekday === 4 ? null : 'group3';
+                }
+                
+                return null;
+            },
+            
+            // 获取对应日期组的时间段（太平洋时间）
+            getTimeSlots(group, pdtDate) {
+                const year = pdtDate.getFullYear();
+                const month = pdtDate.getMonth();
+                const day = pdtDate.getDate();
+                
+                switch(group) {
+                    case 'group1':
+                        return [
+                            { 
+                                start: new Date(year, month, day, 7, 48), 
+                                end: new Date(year, month, day, 11, 40) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 13, 48), 
+                                end: new Date(year, month, day, 17, 40) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 19, 48), 
+                                end: new Date(year, month, day, 23, 40) 
+                            }
+                        ];
+                    case 'group2':
+                        return [
+                            { 
+                                start: new Date(year, month, day, 2, 28), 
+                                end: new Date(year, month, day, 6, 20) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 8, 28), 
+                                end: new Date(year, month, day, 12, 20) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 14, 28), 
+                                end: new Date(year, month, day, 18, 20) 
+                            }
+                        ];
+                    case 'group3':
+                        return [
+                            { 
+                                start: new Date(year, month, day, 3, 38), 
+                                end: new Date(year, month, day, 7, 30) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 9, 38), 
+                                end: new Date(year, month, day, 13, 30) 
+                            },
+                            { 
+                                start: new Date(year, month, day, 15, 38), 
+                                end: new Date(year, month, day, 19, 30) 
+                            }
+                        ];
+                    default:
+                        return [];
+                }
+            },
+            
+            // 破晓红石地点映射表
+            getLocation(pdtDate) {
+                const day = pdtDate.getDate();
+                
+                // 云野
+                if (day === 1 || day === 31) return "云野-云野山洞";
+                if (day === 11) return "云野-圣岛";
+                if (day === 21) return "云野-浮石鸟巢";
+                
+                // 雨林
+                if (day === 7) return "雨林-雨林宫殿";
+                if (day === 17) return "雨林-雨林高处";
+                if (day === 27) return "雨林-大树屋";
+                
+                // 霞谷
+                if (day === 3 || day === 13) return "霞谷-圆梦村";
+                if (day === 23) return "霞谷-隐士山谷";
+                
+                // 暮土
+                if (day === 9) return "暮土-暗蟹沙原";
+                if (day === 19) return "暮土-暮土墓园";
+                if (day === 29) return "暮土-失落方舟";
+                
+                // 禁阁
+                if (day === 5 || day === 15 || day === 25) return "禁阁-星漠海滩";
+                
+                return "地点未知";
+            },
+            
+            // 检查破晓红石事件是否在活动时间段
+            isActive(nowCST) {
+                try {
+                    const nowPDT = TimeZoneUtils.CSTtoPDT(nowCST);
+                    const group = this.getDateGroup(nowPDT);
+                    if (!group) return null;
                     
-                    if (slot.end === 24*60) {
-                        startTime = new Date(now);
-                        startTime.setHours(Math.floor(slot.start/60), slot.start%60, 0, 0);
-                        endTime = new Date(now);
-                        endTime.setDate(endTime.getDate() + 1);
-                        endTime.setHours(0, 0, 0, 0);
-                    } else {
-                        startTime = new Date(now);
-                        startTime.setHours(Math.floor(slot.start/60), slot.start%60, 0, 0);
-                        endTime = new Date(now);
-                        endTime.setHours(Math.floor(slot.end/60), slot.end%60, 0, 0);
+                    const slots = this.getTimeSlots(group, nowPDT);
+                    for (let slot of slots) {
+                        const slotStartCST = TimeZoneUtils.PDTtoCST(slot.start);
+                        const slotEndCST = TimeZoneUtils.PDTtoCST(slot.end);
+                        
+                        if (nowCST >= slotStartCST && nowCST < slotEndCST) {
+                            return {
+                                startTime: slotStartCST,
+                                endTime: slotEndCST,
+                                location: this.getLocation(nowPDT)
+                            };
+                        }
                     }
-                    
-                    if (now >= startTime && now < endTime) {
-                        return { 
-                            startTime, 
-                            endTime,
-                            location: getDawnRedstoneLocation(now, currentDay)
+                    return null;
+                } catch (e) {
+                    console.error('检查破晓红石活动状态出错:', e);
+                    return null;
+                }
+            },
+            
+            // 计算破晓红石事件的下一次发生时间
+            getNextOccurrence(nowCST) {
+                try {
+                    // 首先检查当前是否有正在进行的事件
+                    const currentActive = this.isActive(nowCST);
+                    if (currentActive) {
+                        return {
+                            startTime: currentActive.startTime,
+                            location: currentActive.location
                         };
                     }
-                }
-            }
-            
-            return null;
-        }
-        
-        // 修复：计算破晓红石事件的下一次发生时间
-        function getNextDawnRedstoneOccurrence(now) {
-            const currentActiveInfo = isDawnRedstoneActive(now);
-            if (currentActiveInfo) {
-                return {
-                    startTime: currentActiveInfo.startTime,
-                    location: currentActiveInfo.location
-                };
-            }
-            
-            const today = new Date(now);
-            today.setHours(0, 0, 0, 0);
-            
-            const currentDate = now.getDate();
-            const currentDay = now.getDay();
-            
-            const timeSlots = getDawnRedstoneTimeSlots(currentDate, currentDay);
-            for (let slot of timeSlots) {
-                const slotTime = new Date(today);
-                slotTime.setHours(Math.floor(slot.start/60), slot.start%60, 0, 0);
-                
-                if (slotTime > now) {
+                    
+                    const nowPDT = TimeZoneUtils.CSTtoPDT(nowCST);
+                    
+                    // 检查当前PDT日内的所有时间段
+                    const currentGroup = this.getDateGroup(nowPDT);
+                    if (currentGroup) {
+                        const slots = this.getTimeSlots(currentGroup, nowPDT);
+                        for (let slot of slots) {
+                            const slotStartCST = TimeZoneUtils.PDTtoCST(slot.start);
+                            if (slotStartCST > nowCST) {
+                                return {
+                                    startTime: slotStartCST,
+                                    location: this.getLocation(nowPDT)
+                                };
+                            }
+                        }
+                    }
+                    
+                    // 如果当前PDT日内没有找到，检查未来7天
+                    let checkDate = new Date(nowPDT);
+                    for (let i = 1; i <= 7; i++) {
+                        checkDate.setDate(checkDate.getDate() + 1);
+                        const futureGroup = this.getDateGroup(checkDate);
+                        if (futureGroup) {
+                            const slots = this.getTimeSlots(futureGroup, checkDate);
+                            if (slots.length > 0) {
+                                const firstSlotCST = TimeZoneUtils.PDTtoCST(slots[0].start);
+                                return {
+                                    startTime: firstSlotCST,
+                                    location: this.getLocation(checkDate)
+                                };
+                            }
+                        }
+                    }
+                    
+                    // 默认返回7天后
                     return {
-                        startTime: slotTime,
-                        location: getDawnRedstoneLocation(slotTime, slotTime.getDay())
+                        startTime: new Date(nowCST.getTime() + 7 * 24 * 60 * 60 * 1000),
+                        location: "地点未知"
+                    };
+                } catch (e) {
+                    console.error('计算破晓红石下次发生时间出错:', e);
+                    return {
+                        startTime: new Date(nowCST.getTime() + 60 * 60 * 1000),
+                        location: "地点未知"
                     };
                 }
             }
-            
-            for (let i = 1; i <= 7; i++) {
-                const checkDate = new Date(today);
-                checkDate.setDate(checkDate.getDate() + i);
-                const checkDay = checkDate.getDay();
-                const checkDateNum = checkDate.getDate();
-                
-                const daySlots = getDawnRedstoneTimeSlots(checkDateNum, checkDay);
-                if (daySlots.length > 0) {
-                    const firstSlot = daySlots[0];
-                    const firstSlotTime = new Date(checkDate);
-                    firstSlotTime.setHours(Math.floor(firstSlot.start/60), firstSlot.start%60, 0, 0);
-                    return {
-                        startTime: firstSlotTime,
-                        location: getDawnRedstoneLocation(firstSlotTime, firstSlotTime.getDay())
-                    };
-                }
-            }
-            
-            const defaultTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            return {
-                startTime: defaultTime,
-                location: getDawnRedstoneLocation(defaultTime, defaultTime.getDay())
-            };
-        }
-        
-        // 获取指定日期的破晓红石时间段
-        function getDawnRedstoneTimeSlots(date, day) {
-            const slots = [];
-            
-            if (day === 0) {
-                slots.push(
-                    { start: 7*60+8, end: 8*60+0 },
-                    { start: 13*60+8, end: 14*60+0 },
-                    { start: 19*60+8, end: 20*60+0 }
-                );
-            }
-            
-            if (day === 6 && date >= 1 && date <= 15) {
-                slots.push(
-                    { start: 10*60+8, end: 11*60+0 },
-                    { start: 14*60+8, end: 15*60+0 },
-                    { start: 22*60+8, end: 23*60+0 }
-                );
-            }
-            
-            if (day === 5 && date >= 16) {
-                slots.push(
-                    { start: 11*60+8, end: 12*60+0 },
-                    { start: 17*60+8, end: 18*60+0 },
-                    { start: 23*60+8, end: 24*60+0 }
-                );
-            }
-            
-            return slots;
-        }
-        
-
+        };
 
         // ==================== 圆梦滑冰事件规则 ====================
         const DreamSkatingRules = {
@@ -2933,24 +2904,25 @@
                 
                 // 检查supabase是否已正确初始化
                 if (!supabase || typeof supabase.from !== 'function') {
-                    console.log('Supabase未正确初始化，使用空数据');
+                    console.log('Supabase未正确初始化，使用localStorage数据');
                     // 显示Supabase未初始化通知
-                    showNotification('Supabase未初始化，无法加载最新数据', false);
-                    return [];
+                    showNotification('Supabase未初始化，当前处于本地存储模式', false);
+                    const localData = loadFromLocalStorage() || [];
+                    console.log('从localStorage加载的数据:', localData ? localData.length : 0, '个任务');
+                    return localData;
                 }
                 
-                // 不再使用本地缓存，直接从云端获取最新数据
-                console.log('开始从Supabase请求最新数据...');
+                // 获取本地存储的数据
+                const localData = loadFromLocalStorage() || [];
+                console.log('本地数据:', localData.length, '个任务');
+                console.log('本地数据样例:', localData.slice(0, 1));
                 
-                // 修复请求详情，表名应为tasks_13
                 console.log('开始从Supabase请求数据...');
-                console.log('请求详情: 表名=tasks_13, 操作=select(*), 方式=GET');
+                console.log('请求详情: 表名=tasks, 操作=select(*), 方式=GET');
                 console.log('请求URL:', supabaseUrl);
                 
                 let remoteData = null;
                 let supabaseError = null;
-                // 不再使用本地缓存数据
-                const localData = [];
                 
                 try {
                     // 单独的try-catch来捕获fetch错误
@@ -2961,7 +2933,7 @@
                     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
                     
                     const result = await supabase
-                        .from('tasks_13')
+                        .from('tasks')
                         .select('*')
                         .abortSignal(controller.signal);
                     
@@ -2980,17 +2952,17 @@
                         console.error('错误详情:', supabaseError.details);
                         
                         // 根据错误类型显示不同的通知
-                        let errorMessage = '从Supabase加载数据失败，无法获取最新数据';
+                        let errorMessage = '从Supabase加载数据失败，正在尝试使用最新缓存';
                         if (supabaseError.code === 'PGRST301' || supabaseError.code === 'PGRST300') {
-                            errorMessage = 'Supabase表不存在或权限不足，无法获取最新数据';
+                            errorMessage = 'Supabase表不存在或权限不足，使用本地存储数据';
                         } else if (supabaseError.code === '42501') {
-                            errorMessage = 'Supabase权限错误，无法获取最新数据';
+                            errorMessage = 'Supabase权限错误，使用本地存储数据';
                         }
                         
                         // 显示加载失败通知
                         showNotification(errorMessage, false);
-                        // 不再使用本地缓存数据，直接返回空数组
-                        return [];
+                        // 如果从Supabase加载失败，尝试从localStorage加载
+                        return localData;
                     }
                 } catch (fetchError) {
                     // 专门捕获fetch错误
@@ -3001,17 +2973,17 @@
                     console.error('fetch错误堆栈:', fetchError.stack);
                     
                     // 根据错误类型显示不同的通知
-                    let errorMessage = '网络请求失败，无法获取最新数据';
+                    let errorMessage = '网络请求失败，正在尝试使用最新缓存';
                     if (fetchError.name === 'AbortError') {
-                        errorMessage = '请求超时，无法获取最新数据';
+                        errorMessage = '请求超时，正在尝试使用最新缓存';
                     } else if (fetchError.name === 'TypeError' && fetchError.message === 'Failed to fetch') {
                         errorMessage = '无法连接到Supabase服务器，请检查网络连接';
                     }
                     
                     // 显示加载失败通知
                     showNotification(errorMessage, false);
-                    // 不再使用本地存储数据作为回退，直接返回空数组
-                    return [];
+                    // 使用本地存储数据作为回退
+                    return localData;
                 }
                 
                 console.log('从Supabase获取到的数据:', remoteData ? remoteData.length : 0, '个任务');
@@ -3035,32 +3007,46 @@
                         return task;
                     });
                     
-                    // 不再合并本地数据，直接使用云端最新数据
-                    console.log('直接使用云端最新数据，不合并本地缓存');
+                    // 合并本地和远程数据，基于时间戳
+                    console.log('开始合并本地和云端数据...');
+                    const mergedData = mergeData(localData, processedRemoteData);
                     
-                    // 将最新数据保存到localStorage
-                    localStorage.setItem('timeProjectReminderTasks', JSON.stringify(processedRemoteData));
-                    console.log('最新数据已保存到localStorage');
+                    // 将合并后的数据保存到localStorage
+                    localStorage.setItem('timeProjectReminderTasks', JSON.stringify(mergedData));
+                    console.log('合并后的数据已保存到localStorage');
                     
-                    // 验证云端数据
-                    console.log('云端数据验证:');
+                    // 验证合并结果
+                    console.log('合并前后数据对比:');
                     console.log('  本地:', localData.length, '个任务');
                     console.log('  云端:', remoteData.length, '个任务');
-                    console.log('  使用云端任务数量:', processedRemoteData.length, '个任务');
+                    console.log('  合并后:', mergedData.length, '个任务');
                     
-                    // 分析云端数据
-                    console.log('云端数据分析:');
-                    console.log('  成功获取最新数据');
+                    // 分析合并结果
+                    const addedTasks = mergedData.filter(task => 
+                        !localData.some(local => local.id === task.id)
+                    );
+                    const updatedTasks = mergedData.filter(task => {
+                        const localTask = localData.find(local => local.id === task.id);
+                        return localTask && new Date(task.updated_at) > new Date(localTask.updated_at);
+                    });
+                    
+                    console.log('合并分析:');
+                    console.log('  新增任务:', addedTasks.length, '个');
+                    console.log('  更新任务:', updatedTasks.length, '个');
                     
                     // 显示云端数据加载成功通知
-                    showNotification('云端最新数据加载成功', false);
-                    return processedRemoteData;
+                    showNotification('云端数据加载成功', false);
+                    return mergedData;
                 } else {
-                    // 如果Supabase返回空数据，返回空数组
-                    console.log('Supabase返回空数据，使用空数据');
+                    // 如果Supabase返回空数据，尝试从localStorage加载
+                    console.log('Supabase返回空数据，使用localStorage数据');
                     // 显示Supabase返回空数据通知
-                    showNotification('Supabase中没有数据，使用空数据', false);
-                    return [];
+                    showNotification('Supabase中没有数据，使用本地存储数据', false);
+                    // 检查是否需要将本地数据推送到Supabase
+                    if (localData.length > 0) {
+                        console.log('检测到本地有数据，建议将本地数据推送到Supabase');
+                    }
+                    return localData;
                 }
             } catch (e) {
                 console.error('从Supabase加载时发生异常:', e);
@@ -3068,17 +3054,19 @@
                 console.error('异常堆栈:', e.stack);
                 
                 // 更详细地分析异常类型
-                let errorMessage = '从Supabase加载数据异常，无法获取最新数据';
+                let errorMessage = '从Supabase加载数据异常，使用本地存储数据';
                 if (e.name === 'NetworkError' || (e.name === 'TypeError' && e.message.includes('network'))) {
-                    errorMessage = '网络连接异常，无法获取最新数据';
+                    errorMessage = '网络连接异常，当前处于本地存储模式';
                 } else if (e.name === 'TimeoutError') {
-                    errorMessage = '请求超时，无法获取最新数据';
+                    errorMessage = '请求超时，当前处于本地存储模式';
                 }
                 
                 // 显示加载异常通知
                 showNotification(errorMessage, true);
-                // 不再使用本地存储数据作为回退，直接返回空数组
-                return [];
+                // 如果从Supabase加载失败，尝试从localStorage加载
+                const localData = loadFromLocalStorage() || [];
+                console.log('从localStorage加载的数据:', localData ? localData.length : 0, '个任务');
+                return localData;
             } finally {
                 console.log('=== 从Supabase加载数据完成 ===');
             }
@@ -3174,7 +3162,7 @@
                             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
                             
                             const result = await supabase
-                                .from('tasks_13')
+                                .from('tasks')
                                 .select('id, updated_at')
                                 .abortSignal(controller.signal);
                             
@@ -3277,7 +3265,7 @@
                                     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
                                     
                                     const result = await supabase
-                                        .from('tasks_13')
+                                        .from('tasks')
                                         .update(task)
                                         .eq('id', task.id)
                                         .abortSignal(controller.signal);
@@ -3331,7 +3319,7 @@
                                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
                                 
                                 const result = await supabase
-                                    .from('tasks_13')
+                                    .from('tasks')
                                     .insert(tasksToInsert)
                                     .select()
                                     .abortSignal(controller.signal);
@@ -4060,7 +4048,7 @@
             try {
                 // 破晓红石特殊处理
                 if (task.recurrence.type === "custom_complex" && task.recurrence.pattern === "dawn_redstone") {
-                    return getNextDawnRedstoneOccurrence(nowCST);
+                    return DawnRedstoneRules.getNextOccurrence(nowCST);
                 }
                 
                 // 圆梦滑冰特殊处理
@@ -4880,7 +4868,7 @@
                     let location = "";
                     
                     if (task.recurrence.pattern === "dawn_redstone") {
-                        activeInfo = isDawnRedstoneActive(nowCST);
+                        activeInfo = DawnRedstoneRules.isActive(nowCST);
                         location = "破晓红石位置";
                         
                         if (activeInfo) {
@@ -4902,7 +4890,7 @@
                             };
                         }
                         
-                        nextOccurrence = getNextDawnRedstoneOccurrence(nowCST);
+                        nextOccurrence = DawnRedstoneRules.getNextOccurrence(nowCST);
                         if (!nextOccurrence || !nextOccurrence.startTime) {
                             return createDefaultStatus(nowCST, "未来事件", 0, "--");
                         }
@@ -5102,25 +5090,17 @@
             // 预先定义优先级顺序，避免重复创建对象
             const priorityOrder = { high: 3, medium: 2, low: 1 };
             
-            console.log('=== getVisibleTasks() 调用 ===');
-            console.log('处理任务总数:', tasks.length);
-            
             // 使用for循环替代map+filter，减少数组遍历次数
             for (let i = 0; i < tasks.length; i++) {
                 const task = tasks[i];
                 
-                console.log(`处理任务 ${i+1}/${tasks.length}: ${task.name}, 优先级: ${task.priority}`);
-                
                 // 先过滤掉优先级为none的任务，避免不必要的计算
                 if (task.priority === "none") {
-                    console.log(`  跳过: 优先级为none`);
                     continue;
                 }
                 
                 // 获取任务状态
                 const status = getTaskStatus(task, nowCST);
-                
-                console.log(`  任务状态: ${status.status}, 状态文本: ${status.timeText}`);
                 
                 // 只保留正在进行或即将开始的任务
                 if (status.status !== "completed" && 
@@ -5130,9 +5110,6 @@
                         ...task,
                         ...status
                     });
-                    console.log(`  添加到可见列表`);
-                } else {
-                    console.log(`  跳过: 状态不是ongoing或upcoming`);
                 }
             }
             
@@ -6087,11 +6064,6 @@
 
         // 更新事件显示
         function updateTasks() {
-            // 添加调试信息
-            console.log('=== updateTasks() 调用 ===');
-            console.log('当前tasks数组长度:', tasks.length);
-            console.log('当前tasks数组:', tasks);
-            
             currentVisibleTasks = getVisibleTasks();
             currentAllTasks = getAllTasksWithStatus();
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
@@ -7207,37 +7179,22 @@
             
             // 异步加载数据，不阻塞UI
             (async () => {
-                // 清除localStorage缓存，确保每次都加载最新的云端数据
-                console.log('清除localStorage缓存，确保加载最新云端数据');
-                localStorage.removeItem('timeProjectReminderTasks');
-                
                 // 检查是否有外部数据并加载
                 const savedData = await loadFromSupabase();
-                if (savedData && Array.isArray(savedData) && savedData.length > 0) {
-                    // 如果返回的是数组且有数据，直接赋值给tasks
-                    console.log('使用云端数据更新tasks数组');
+                if (savedData && Array.isArray(savedData)) {
+                    // 如果返回的是数组，直接赋值给tasks
                     tasks = savedData;
-                } else if (savedData && savedData.tasks && savedData.tasks.length > 0) {
+                } else if (savedData && savedData.tasks) {
                     // 兼容旧数据格式
-                    console.log('使用兼容格式的云端数据更新tasks数组');
                     tasks = savedData.tasks;
                 } else {
-                    console.log('云端数据为空或格式不正确，使用硬编数据');
-                    // 如果云端数据为空，使用硬编数据
-                    if (hardcodedTasksData.length > 0) {
-                        tasks = hardcodedTasksData;
-                    } else {
-                        // 保存初始任务列表
-                        await saveData(tasks);
-                    }
+                    // 保存初始任务列表
+                    await saveData(tasks);
                 }
                 
-                console.log('数据加载完成，最终tasks数组长度:', tasks.length);
-                
-                // 数据加载完成后更新任务列表、特殊通知和魔法图标
+                // 数据加载完成后更新任务列表和特殊通知
                 updateTasks();
                 updateSpecialNotification();
-                initMagicIcons(); // 重新初始化魔法图标，使用最新的云端数据
             })();
             
             // 检测Sky文件夹中的图片 - 使用自动检测机制
@@ -7602,140 +7559,29 @@
             updateCurrentTime();
             updateTasks();
             
-            // 初始化魔法图标
-            initMagicIcons();
-
-        });
-        
-        // 魔法图标配置
-        const magicIconsConfig = {
-            0: [ // 星期日
-                { name: '今日 体型重塑', png: 'txcs.png' },
-                { name: '今日 彩虹魔法', png: 'chmf.png' }
-            ],
-            1: [ // 星期一
-                { name: '今日 浪漫烟花', png: 'lmyh.png' }
-            ],
-            2: [ // 星期二
-                { name: '今日 充能药剂', png: 'cnyj.png' }
-            ],
-            3: [ // 星期三
-                { name: '今日 璀璨之星', png: 'cczx.png' }
-            ],
-            4: [ // 星期四
-                { name: '今日 漂浮魔法', png: 'pfmf.png' }
-            ],
-            5: [ // 星期五
-                { name: '今日魔法 小不点', png: 'xbd.png' },
-                { name: '今日免费魔法 大只佬', png: 'dzl.png' }
-            ],
-            6: [ // 星期六
-                { name: '今日 返老还童', png: 'flht.png' },
-                { name: '今日 长大成人', png: 'zdcr.png' }
-            ]
-        };
-        
-        // 初始化魔法图标
-        function initMagicIcons() {
-            const container = document.getElementById('magic-icons-container');
-            const today = new Date().getDay(); // 获取今天是星期几 (0-6)
-            const magicIcons = magicIconsConfig[today] || [];
-            const now = new Date(); // 声明当前时间变量，供所有地方使用
-            
-            // 保存当前容器状态，以便在出现问题时恢复
-            const originalContent = container.innerHTML;
-            
-            try {
-                // 清空容器
-                container.innerHTML = '';
-                
-                // 添加魔法图标
-                // 检查事件Id25是否在生效的有效期内
-                const event25 = tasks.find(task => task.id === 25);
-                let isEvent25Active = false;
-                
-                console.log('双倍魔法调试：当前时间', now);  // 新增调试日志
-                console.log('双倍魔法调试：找到的事件25', event25);  // 新增调试日志
-                
-                if (event25) {
-                    // 计算事件Id25的有效期
-                    const startTime = new Date(`${event25.startDate}T${event25.startTime}`);
-                    const durationMs = convertToMilliseconds(event25.recurrence.duration, event25.recurrence.durationUnit);
-                    const endTime = new Date(startTime.getTime() + durationMs);
-                    
-                    console.log('双倍魔法调试：开始时间', startTime);  // 新增调试日志
-                    console.log('双倍魔法调试：结束时间', endTime);  // 新增调试日志
-                    console.log('双倍魔法调试：持续时间(ms)', durationMs);  // 新增调试日志
-                    
-                    // 检查当前时间是否在事件有效期内
-                    isEvent25Active = now >= startTime && now < endTime;
-                    console.log('双倍魔法调试：事件是否激活', isEvent25Active);  // 新增调试日志
-                }
-                
-                // 如果事件Id25生效，则显示sb.png，否则显示当天的魔法图标
-                if (isEvent25Active) {
-                    // 创建双倍魔法图标
-                    const iconElement = document.createElement('div');
-                    iconElement.className = 'magic-icon-item cursor-pointer relative';
-                    iconElement.title = '双倍魔法';
-                    iconElement.innerHTML = `
-                        <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible;">
-                            <img src="./icons/sb.png" alt="双倍魔法" 
-                                 style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
-                                 class="magic-icon hover:scale-110" 
-                                 onerror="this.src='./icons/gjf.png'; this.alt='双倍魔法';" />
-                        </div>
-                    `;
-                    
-                    // 添加点击事件，显示双倍魔法通知并执行拉花喷射
-                    iconElement.addEventListener('click', () => {
-                        showNotification('双倍666魔法');
-                        // 执行拉花喷射效果
-                        spraySpots();
-                    });
-                    
-                    // 添加到容器
-                    container.appendChild(iconElement);
-                } else {
-                    // 正常显示当天的魔法图标
-                    magicIcons.forEach(magic => {
-                        const iconElement = document.createElement('div');
-                        iconElement.className = 'magic-icon-item cursor-pointer relative';
-                        iconElement.title = magic.name;
-                        iconElement.innerHTML = `
-                            <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible;">
-                                <img src="./icons/${magic.png}" alt="${magic.name}" 
-                                     style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
-                                     class="magic-icon hover:scale-110" 
-                                     onerror="this.src='./icons/gjf.png'; this.alt='魔法图标';" />
-                            </div>
-                        `;
-                        
-                        // 添加点击事件，显示魔法名称
-                        iconElement.addEventListener('click', () => {
-                            showNotification(magic.name);
-                        });
-                        
-                        // 直接添加到容器
-                        container.appendChild(iconElement);
-                    });
-                }
-                
-                // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+            // 添加季蜡位置图标功能
+            (function() {
+                // 季蜡位置图标功能 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
                 const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
-                const currentDate = new Date();
                 
-                // 计算2025年11月27日应该显示霞谷（索引2）
-                // 计算当天是一年中的第几天
-                const dayOfYear = Math.floor((currentDate - new Date(currentDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+                // 获取当前北京时间，并转换为太平洋时间用于计算
+                const currentDate = new Date();
+                const pacificDate = TimeZoneUtils.CSTtoPDT(currentDate);
+                
+                // 计算太平洋时间下的当天是一年中的第几天
+                const dayOfYear = Math.floor((pacificDate - new Date(pacificDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
                 
                 // 添加偏移量确保2025年11月27日显示霞谷
                 // 2025年11月27日是第331天，331 % 5 = 1（对应雨林），需要偏移+1到索引2（霞谷）
-                const offset = 1;
+                const offset = 2;
                 const mapIndex = (dayOfYear + offset) % seasonWaxMaps.length;
                 const currentMap = seasonWaxMaps[mapIndex];
                 
-                // 检查jl.png是否存在，如不存在则使用默认图标
+                // 获取魔法图标容器
+                const container = document.getElementById('magic-icons-container');
+                if (!container) return;
+                
+                // 创建季蜡元素
                 const seasonWaxElement = document.createElement('div');
                 seasonWaxElement.className = 'magic-icon-item cursor-pointer relative';
                 seasonWaxElement.title = `今日季蜡位置: ${currentMap}`;
@@ -7744,7 +7590,7 @@
                         <img src="./icons/jl.png" alt="季蜡" 
                              style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
                              class="magic-icon hover:scale-110" 
-                             onerror="this.src='./icons/gjf.png'; this.alt='季蜡';" />
+                             onerror="this.src='./icons/jl.png'; this.alt='季蜡';" />
                     </div>
                     <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
                         ${currentMap}
@@ -7753,25 +7599,56 @@
                 
                 // 添加点击事件，显示季蜡位置
                 seasonWaxElement.addEventListener('click', () => {
-                    showNotification(`今天季蜡在  ${currentMap} 哦!`);
+                    showNotification(`今日季蜡位置: ${currentMap}`);
                 });
                 
-                // 直接添加到容器
                 container.appendChild(seasonWaxElement);
                 
-                // 添加大蜡图标 - 每天切换不同地图组合
-                // 正确策略：周一到周日的大蜡位置
+                // 添加大蜡位置图标功能 - 每天切换不同地图组合
+                // 根据用户要求：太平洋时间12月8日的大蜡位置在云野，显示规律是云野, 雨林, 霞谷, 暮土, 禁阁，按顺序每天显示下个位置
                 const largeWaxMaps = [
-                    { locations: ['霞谷'], name: '霞谷', fullName: '霞谷' },                          // 周一 (l1)
-                    { locations: ['暮土'], name: '暮土', fullName: '暮土' },                          // 周二 (l2)
-                    { locations: ['禁阁'], name: '禁阁', fullName: '禁阁' },                          // 周三 (l3)
-                    { locations: ['云野'], name: '云野', fullName: '云野' },                          // 周四 (l4)
-                    { locations: ['云野', '雨林', '霞谷'], name: '云野,雨林,霞谷', fullName: '云野,雨林,霞谷' },  // 周五 (l5)
-                    { locations: ['云野', '雨林', '暮土'], name: '云野,雨林,暮土', fullName: '云野,雨林,暮土' },  // 周六 (l6)
-                    { locations: ['雨林', '暮土', '禁阁'], name: '雨林,暮土,禁阁', fullName: '雨林,暮土,禁阁' }   // 周日 (l7)
+                    { locations: ['云野'], name: '云野', fullName: '云野' },      // 第1天
+                    { locations: ['雨林'], name: '雨林', fullName: '雨林' },      // 第2天
+                    { locations: ['霞谷'], name: '霞谷', fullName: '霞谷' },      // 第3天
+                    { locations: ['暮土'], name: '暮土', fullName: '暮土' },      // 第4天
+                    { locations: ['禁阁'], name: '禁阁', fullName: '禁阁' }       // 第5天
                 ];
                 
-                // 自动检测图片数量的函数 - 支持GitHub API和本地图片
+                // 设置起始日期：太平洋时间2024年12月8日
+                const startDate = new Date(Date.UTC(2024, 11, 8)); // 月份是0-11，所以11代表12月
+                
+                // 将当前太平洋时间转换为UTC时间以便计算
+                const currentPacificUTC = new Date(Date.UTC(
+                    pacificDate.getFullYear(),
+                    pacificDate.getMonth(),
+                    pacificDate.getDate()
+                ));
+                
+                // 计算从起始日期到当前日期的天数差
+                const timeDiff = currentPacificUTC - startDate;
+                const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+                
+                // 使用天数差对5取模，得到大蜡位置索引（0-4）
+                const adjustedDayOfWeek = dayDiff % 5;
+                const currentLargeWax = largeWaxMaps[adjustedDayOfWeek];
+                
+                // 创建大蜡元素
+                const largeWaxElement = document.createElement('div');
+                largeWaxElement.className = 'magic-icon-item cursor-pointer relative';
+                largeWaxElement.title = `今日大蜡位置: ${currentLargeWax.name}`;
+                largeWaxElement.innerHTML = `
+                    <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
+                        <img src="./icons/dl.png" alt="大蜡" 
+                             style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
+                             class="magic-icon hover:scale-110" 
+                             onerror="this.src='./icons/jl.png'; this.alt='大蜡';" />
+                    </div>
+                    <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
+                        ${currentLargeWax.name}
+                    </div>
+                `;
+                
+                // 自动检测图片数量的函数
                 function detectImages(dayIndex) {
                     return new Promise((resolve) => {
                         const folderName = `l${dayIndex + 1}`;
@@ -7781,7 +7658,7 @@
                         
                         // GitHub Pages 配置
                         const githubRepo = 'Asan-13/Asan-13.github.io';
-                        const githubPath = `SS/sky/TRAE/163/images/${folderName}`;
+                        const githubPath = `SS/sky/TRAE/images/${folderName}`;
                         
                         // 先尝试从GitHub API获取图片列表
                         fetch(`https://api.github.com/repos/${githubRepo}/contents/${githubPath}`)
@@ -7856,115 +7733,32 @@
                     });
                 }
                 
-                // 设置起始日期：太平洋时间2024年12月8日（周日）
-                const startDate = new Date(Date.UTC(2024, 11, 8)); // 月份是0-11，所以11代表12月
-                
-                // 将当前时间转换为北京时间（东八区）
-                // 创建UTC时间对象
-                const currentUTC = new Date(Date.UTC(
-                    currentDate.getFullYear(),
-                    currentDate.getMonth(),
-                    currentDate.getDate()
-                ));
-                
-                // 转换为北京时间 (UTC+8)
-                const currentBeijingTime = new Date(currentUTC.getTime() + 8 * 60 * 60 * 1000);
-                
-                // 获取北京时间的星期几 (0=周日, 1=周一...6=周六)
-                const beijingDayOfWeek = currentBeijingTime.getUTCDay();
-                
-                // 计算索引：周一=0, 周二=1...周日=6
-                const adjustedDayOfWeek = beijingDayOfWeek === 0 ? 6 : beijingDayOfWeek - 1;
-                const currentLargeWax = largeWaxMaps[adjustedDayOfWeek];
-                
-                // 检查事件Id24是否在生效的有效期内
-                let isEvent24Active = false;
-                
-                // 从合并后的tasks数组获取事件Id24的实际数据（优先使用云数据）
-                const event24 = tasks.find(task => task.id === 24);
-                if (event24) {
-                    // 计算事件Id24的有效期
-                    const startTime = new Date(`${event24.startDate}T${event24.startTime}`);
-                    const durationMs = convertToMilliseconds(event24.recurrence.duration, event24.recurrence.durationUnit);
-                    const endTime = new Date(startTime.getTime() + durationMs);
+                // 检测当前日期的图片数量
+                detectImages(adjustedDayOfWeek).then(images => {
+                    currentLargeWax.images = images;
                     
-                    // 检查当前时间是否在事件有效期内
-                    isEvent24Active = now >= startTime && now < endTime;
-                }
+                    // 只有当存在图片时才添加点击事件显示图片查看功能
+                    if (images.length > 0) {
+                        // 添加点击事件，显示大蜡位置和图片
+                        largeWaxElement.addEventListener('click', () => {
+                            showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
+                            // 显示图片卡片，传入文件夹名称
+                            const folderName = `l${adjustedDayOfWeek + 1}`;
+                            showLargeWaxImages(currentLargeWax.images, currentLargeWax.fullName, folderName);
+                        });
+                    } else {
+                        // 没有图片时，只显示通知，不提供图片查看功能
+                        largeWaxElement.addEventListener('click', () => {
+                            showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
+                        });
+                        // 可选：添加样式或提示表明没有图片可查看
+                        largeWaxElement.style.opacity = '0.7'; // 降低透明度表示不可点击查看图片
+                    }
+                });
                 
-                // 创建大蜡图标元素
-                const largeWaxElement = document.createElement('div');
-                largeWaxElement.className = 'magic-icon-item cursor-pointer relative';
-                
-                // 根据事件Id24状态设置显示内容
-                let displayLocation = currentLargeWax.locations.length === 1 ? currentLargeWax.locations[0] : currentLargeWax.locations.map(loc => loc.charAt(0)).join(' ');
-                if (isEvent24Active) {
-                    displayLocation = '全图';
-                    largeWaxElement.title = `今日大蜡位置: ${displayLocation}`;
-                } else {
-                    largeWaxElement.title = `今日大蜡位置: ${currentLargeWax.name}`;
-                }
-                
-                largeWaxElement.innerHTML = `
-                    <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
-                        <img src="./icons/dl.png" alt="大蜡" 
-                             style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
-                             class="magic-icon hover:scale-110" 
-                             onerror="this.src='./icons/gjf.png'; this.alt='大蜡';" />
-                    </div>
-                    <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
-                        ${displayLocation}
-                    </div>
-                `;
-                
-                // 添加点击事件处理
-                if (isEvent24Active) {
-                    // 事件Id24生效时，点击执行拉花喷射效果
-                    largeWaxElement.addEventListener('click', () => {
-                        showNotification(`快跑啊! ${displayLocation}大蜡来了!`);
-                        // 执行拉花喷射效果
-                        spraySpots();
-                    });
-                } else {
-                    // 普通情况，显示大蜡位置
-                    largeWaxElement.addEventListener('click', () => {
-                        showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
-                    });
-                    
-                    // 异步检测大蜡图片
-                    detectImages(adjustedDayOfWeek).then(images => {
-                        currentLargeWax.images = images;
-                        
-                        // 如果有图片，重新添加点击事件以支持图片查看
-                        if (images.length > 0) {
-                            // 重新获取大蜡图标元素
-                            const containerLargeWaxElement = container.querySelector('.magic-icon-item:last-child');
-                            if (containerLargeWaxElement) {
-                                // 移除现有点击事件
-                                containerLargeWaxElement.replaceWith(containerLargeWaxElement.cloneNode(true));
-                                const newLargeWaxElement = container.querySelector('.magic-icon-item:last-child');
-                                
-                                // 添加新的点击事件，支持图片查看
-                                newLargeWaxElement.addEventListener('click', () => {
-                                    showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
-                                    // 显示图片卡片，传入文件夹名称（l1到l7，对应周一到周日）
-                                    const folderName = `l${adjustedDayOfWeek + 1}`;
-                                    showLargeWaxImages(currentLargeWax.images, currentLargeWax.fullName, folderName);
-                                });
-                            }
-                        }
-                    }).catch(error => {
-                    });
-                }
-                
-                // 直接添加到容器
                 container.appendChild(largeWaxElement);
-            } catch (error) {
-                console.error('魔法图标初始化失败:', error);
-                // 如果初始化失败，恢复容器原始内容
-                container.innerHTML = originalContent;
-            }
-        }
+            })();
+        });
 
         // 更新当前时间显示
         function updateCurrentTime() {
@@ -7990,20 +7784,24 @@
         // 每1秒更新一次事件状态，优化性能
         setInterval(updateTasks, 1000);
         
-        // 跨天自动刷新功能已关闭 - 不再基于太平洋时间进行跨天检查
-        
-        // 注册Service Worker
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-              .then((registration) => {
-                console.log('Service Worker 注册成功:', registration.scope);
-              })
-              .catch((error) => {
-                console.log('Service Worker 注册失败:', error);
-              });
-          });
+        // 跨天自动刷新功能
+        function getCurrentPacificDate() {
+            const now = new Date();
+            const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+            return pacificTime.toDateString();
         }
+        
+        // 记录初始太平洋日期
+        const initialPacificDate = getCurrentPacificDate();
+        
+        // 每1分钟检查一次是否跨天
+        setInterval(() => {
+            const currentPacificDate = getCurrentPacificDate();
+            if (currentPacificDate !== initialPacificDate) {
+                // 日期变化，自动刷新页面
+                location.reload();
+            }
+        }, 60000);
     </script>
 </body>
 </html>
