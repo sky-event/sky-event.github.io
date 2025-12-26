@@ -3502,7 +3502,7 @@
             
             // GitHub Pages 配置
             const githubRepo = 'sky-event/sky-event.github.io';
-            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/${folderName}`;
+            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/163/images/${folderName}`;
             
             // 加载图片函数 - 支持本地缓存图片、本地文件和云端图片
             const loadImage = (imageName, imgElement) => {
@@ -5552,10 +5552,10 @@
             }
             
             // 3. 配置GitHub图库信息
-            const githubUsername = 'Asan-13';
+            const githubUsername = 'sky-event';
             const githubRepo = 'sky-event.github.io';
             const githubBranch = 'main';
-            const basePath = 'SS/sky/TRAE/images/event-bg';
+            const basePath = '163/images/event-bg';
             // 使用毫秒级时间戳，确保每次刷新都能获取最新图片
             const timestamp = Date.now();
             
@@ -7271,7 +7271,7 @@
                             // 预加载云端图片
                             const cloudImg = new Image();
                             const githubRepo = 'sky-event/sky-event.github.io';
-                            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/Sky`;
+                            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/163/images/Sky`;
                             cloudImg.src = `${githubImageBaseUrl}/${imageName}`;
                         });
                         
@@ -7831,8 +7831,8 @@
                         let checked = 0;
                         
                         // GitHub Pages 配置
-                        const githubRepo = 'Asan-13/Asan-13.github.io';
-                        const githubPath = `SS/sky/TRAE/163/images/${folderName}`;
+                        const githubRepo = 'sky-event/sky-event.github.io';
+                        const githubPath = `163/images/${folderName}`;
                         
                         // 先尝试从GitHub API获取图片列表
                         fetch(`https://api.github.com/repos/${githubRepo}/contents/${githubPath}`)
