@@ -42,7 +42,7 @@
                 // 预加载破晓日历页面
                 var linkHHS = document.createElement('link');
                 linkHHS.rel = 'prefetch';
-                linkHHS.href = 'HHS.html';
+                linkHHS.href = 'hhs.html';
                 document.head.appendChild(linkHHS);
             }, 3000); // 3秒后预加载
             
@@ -5544,7 +5544,7 @@
             const githubUsername = 'sky-event';
             const githubRepo = 'sky-event.github.io';
             const githubBranch = 'main';
-            const basePath = 'SS/sky/TRAE/images/event-bg';
+            const basePath = 'images/event-bg';
             // 使用毫秒级时间戳，确保每次刷新都能获取最新图片
             const timestamp = Date.now();
             
@@ -5677,7 +5677,7 @@
                     e.preventDefault();
                     
                     // 跳转到 HHS.html
-                    window.open('HHS.html', '_self');
+                    window.open('hhs.html', '_self');
                 });
             }
         }
@@ -7259,7 +7259,7 @@
                             // 预加载云端图片
                             const cloudImg = new Image();
                             const githubRepo = 'sky-event/sky-event.github.io';
-                            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/SS/sky/TRAE/images/Sky`;
+                            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/images/Sky`;
                             cloudImg.src = `${githubImageBaseUrl}/${imageName}`;
                         });
                         
@@ -7741,7 +7741,7 @@
                         
                         // GitHub Pages 配置
                         const githubRepo = 'sky-event/sky-event.github.io';
-                        const githubPath = `SS/sky/TRAE/images/${folderName}`;
+                        const githubPath = `images/${folderName}`;
                         
                         // 先尝试从GitHub API获取图片列表
                         fetch(`https://api.github.com/repos/${githubRepo}/contents/${githubPath}`)
