@@ -34,7 +34,7 @@
                 // 预加载切换国服页面
                 var link163 = document.createElement('link');
                 link163.rel = 'prefetch';
-                link163.href = '163/index.html';
+                link163.href = 'https://sky-event.pages.dev/';
                 document.head.appendChild(link163);
                 
                 // 预加载破晓日历页面
@@ -958,7 +958,7 @@
         
         <!-- 添加163图标链接 -->
         <div id="163-icon" class="lock-indicator" style="right: auto; left: 1rem;" title="切换国际服">
-            <a href="163/index.html" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
+            <a href="https://sky-event.pages.dev/" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
                 <img src="icons/zg.svg" alt="163" style="width: 20px; height: 20px;">
             </a>
         </div>
@@ -5526,7 +5526,9 @@
             // 添加地点显示 - 为破晓红石事件添加特殊类
             const isDawnRedstone = task.name === "破晓 红石";
             const locationClass = isDawnRedstone ? "task-meta-item dawn-redstone-location" : "task-meta-item";
-            const locationText = task.location ? `<span class="${locationClass}"><i class="fa fa-map-marker mr-1 opacity-70"></i>${task.location}</span>` : '';
+            // 处理地点对象，提取区域和名称，格式为：区域-地点名称
+            const locationName = task.location ? (typeof task.location === 'object' ? `${task.location.area}-${task.location.name}` : task.location) : '';
+            const locationText = locationName ? `<span class="${locationClass}"><i class="fa fa-map-marker mr-1 opacity-70"></i>${locationName}</span>` : '';
             
             taskEl.innerHTML = `
                 <div class="flex justify-between items-center task-title">
@@ -5749,7 +5751,9 @@
                 // 为破晓红石事件地点添加特殊类
                 const isDawnRedstone = task.name === "破晓 红石";
                 const locationClass = isDawnRedstone ? "text-xs truncate dawn-redstone-location" : "text-xs text-dark-textSecondary truncate";
-                locationText = `<div class="${locationClass}">${task.location}</div>`;
+                // 处理地点对象，提取区域和名称，格式为：区域-地点名称
+                const locationName = typeof task.location === 'object' ? `${task.location.area}-${task.location.name}` : task.location;
+                locationText = `<div class="${locationClass}">${locationName}</div>`;
             }
             
             taskEl.innerHTML = `
@@ -6036,7 +6040,9 @@
             // 检查是否有地点信息
             if (currentTask.location) {
                 // 有地点信息时显示地点栏并设置内容
-                previewLocationEl.textContent = currentTask.location;
+                // 处理地点对象，提取区域和名称，格式为：区域-地点名称
+                const locationName = typeof currentTask.location === 'object' ? `${currentTask.location.area}-${currentTask.location.name}` : currentTask.location;
+                previewLocationEl.textContent = locationName;
                 locationRow.style.display = 'flex';
                 
                 // 为破晓红石事件添加特殊类
@@ -6161,10 +6167,17 @@
             adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
             
-            // 恢复滚动位置
-            setTimeout(() => {
-                window.scrollTo(0, scrollPosition);
-            }, 0);
+            // 优化：只有当用户没有主动滚动时才恢复滚动位置
+            // 添加滚动标志，避免在用户主动滚动时强制恢复
+            if (!userIsScrolling) {
+                setTimeout(() => {
+                    const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                    // 只有当滚动位置变化较大时才恢复
+                    if (Math.abs(currentScroll - scrollPosition) > 20) {
+                        window.scrollTo(0, scrollPosition);
+                    }
+                }, 0);
+            }
         }
 
         // 更新所有事件列表
@@ -8064,6 +8077,23 @@
             const cstTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
             return cstTime;
         }
+        
+        // 用户滚动状态管理
+        let userIsScrolling = false;
+        let scrollTimeout;
+        
+        // 监听用户滚动事件
+        window.addEventListener('scroll', () => {
+            userIsScrolling = true;
+            
+            // 清除之前的定时器
+            clearTimeout(scrollTimeout);
+            
+            // 300ms后重置滚动标志
+            scrollTimeout = setTimeout(() => {
+                userIsScrolling = false;
+            }, 300);
+        });
 
         // 每秒更新时间
         setInterval(updateCurrentTime, 1000);
@@ -8162,8 +8192,8 @@
             return null;
         }
         
-        // 获取破晓红石事件时间段
-        function getDawnRedstoneTimeSlots(date, dayOfWeek) {
+        // 获取破晓红石事件时间段（用于图标显示）
+        function getDawnRedstoneTimeSlotsForIcons(date, dayOfWeek) {
             const dayOfMonth = date.getDate();
             const slots = [];
             
@@ -8197,8 +8227,8 @@
             return slots;
         }
         
-        // 获取破晓黑石事件时间段
-        function getDawnBlackstoneTimeSlots(date, dayOfWeek) {
+        // 获取破晓黑石事件时间段（用于图标显示）
+        function getDawnBlackstoneTimeSlotsForIcons(date, dayOfWeek) {
             const dayOfMonth = date.getDate();
             const slots = [];
             
@@ -8236,10 +8266,10 @@
                 
                 let slots, location;
                 if (eventType === 'redstone') {
-                    slots = getDawnRedstoneTimeSlots(checkDate, dayOfWeek);
+                    slots = getDawnRedstoneTimeSlotsForIcons(checkDate, dayOfWeek);
                     location = getDawnRedstoneLocation(checkDate, dayOfWeek);
                 } else {
-                    slots = getDawnBlackstoneTimeSlots(checkDate, dayOfWeek);
+                    slots = getDawnBlackstoneTimeSlotsForIcons(checkDate, dayOfWeek);
                     location = getDawnBlackstoneLocation(checkDate, dayOfWeek);
                 }
                 

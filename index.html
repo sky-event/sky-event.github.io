@@ -6162,10 +6162,17 @@
             adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
             
-            // 恢复滚动位置
-            setTimeout(() => {
-                window.scrollTo(0, scrollPosition);
-            }, 0);
+            // 优化：只有当用户没有主动滚动时才恢复滚动位置
+            // 添加滚动标志，避免在用户主动滚动时强制恢复
+            if (!userIsScrolling) {
+                setTimeout(() => {
+                    const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                    // 只有当滚动位置变化较大时才恢复
+                    if (Math.abs(currentScroll - scrollPosition) > 20) {
+                        window.scrollTo(0, scrollPosition);
+                    }
+                }, 0);
+            }
         }
 
         // 更新所有事件列表
@@ -8231,6 +8238,23 @@
             const cstTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
             return cstTime;
         }
+        
+        // 用户滚动状态管理
+        let userIsScrolling = false;
+        let scrollTimeout;
+        
+        // 监听用户滚动事件
+        window.addEventListener('scroll', () => {
+            userIsScrolling = true;
+            
+            // 清除之前的定时器
+            clearTimeout(scrollTimeout);
+            
+            // 300ms后重置滚动标志
+            scrollTimeout = setTimeout(() => {
+                userIsScrolling = false;
+            }, 300);
+        });
 
         // 每秒更新时间
         setInterval(updateCurrentTime, 1000);
