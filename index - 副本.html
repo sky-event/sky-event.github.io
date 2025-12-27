@@ -6161,12 +6161,10 @@
             updateAllTasksList();
             adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
-
             
-            // 优化：只有当用户没有主动滚动且不是移动设备时才恢复滚动位置
-            // 修复安卓设备模拟器的回顶现象
-            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            if (!userIsScrolling && !isMobile) {
+            // 优化：只有当用户没有主动滚动时才恢复滚动位置
+            // 添加滚动标志，避免在用户主动滚动时强制恢复
+            if (!userIsScrolling) {
                 setTimeout(() => {
                     const currentScroll = window.scrollY || document.documentElement.scrollTop;
                     // 只有当滚动位置变化较大时才恢复
@@ -6199,14 +6197,6 @@
 
         // 调整容器大小和样式
         function adjustContainerSize(hasContent) {
-            // 检测移动设备
-            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
-            // 在移动设备上，避免频繁修改容器样式导致的滚动问题
-            if (isMobile) {
-                return;
-            }
-            
             if (hasContent) {
                 appContainer.classList.remove('app-compact');
                 appContainer.classList.add('app-expanded');
@@ -7290,8 +7280,8 @@
                 }
                 
                 // 数据加载完成后更新任务列表和特殊通知
-            updateTasks();
-            updateSpecialNotification();
+                updateTasks();
+                updateSpecialNotification();
             })();
             
             // 页面初始化时预检测图片并预加载，减少用户点击按钮时的等待时间
@@ -7998,7 +7988,7 @@
                         cancelDays: [0, 1], // 周日、周一取消
                         timeSlots: [
                             { start: "17:18", end: "21:10" },
-                            { start: "01:18", end: "05:10" },
+                            { start: "07:18", end: "05:10" },
                             { start: "09:18", end: "13:10" }
                         ]
                     },
@@ -8115,14 +8105,10 @@
                     const now = new Date();
                     const pacificNow = PacificTimeUtils.getCurrentPacificTime();
                     
-                    console.log(`获取${eventType}最近事件，当前北京时间：${now}，当前太平洋时间：${pacificNow}`);
-                    
                     // 检查未来7天的事件
                     for (let i = 0; i <= 7; i++) {
                         const checkDate = new Date(pacificNow);
                         checkDate.setDate(checkDate.getDate() + i);
-                        
-                        console.log(`检查${eventType}事件，日期：${checkDate}，月份天数：${checkDate.getDate()}，星期几：${checkDate.getDay()}`);
                         
                         let events;
                         if (eventType === 'redstone') {
@@ -8130,8 +8116,6 @@
                         } else {
                             events = getBlackstoneEvents(checkDate);
                         }
-                        
-                        console.log(`获取到${eventType}事件数量：${events.length}`);
                         
                         if (events.length > 0) {
                             const event = events[0];
@@ -8142,33 +8126,23 @@
                             const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
                             
                             let dayText;
-                            // 重置时间，只比较日期部分
-                            const todayOnly = new Date(today);
-                            todayOnly.setHours(0, 0, 0, 0);
-                            
-                            const eventDateOnly = new Date(eventCST);
-                            eventDateOnly.setHours(0, 0, 0, 0);
-                            
-                            // 计算相差天数
-                            const timeDiff = eventDateOnly - todayOnly;
-                            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                            
-                            if (dayDiff === 0) {
+                            if (eventCST.toDateString() === today.toDateString()) {
                                 dayText = '今天';
-                            } else if (dayDiff === 1) {
-                                dayText = '明天';
-                            } else if (dayDiff === 2) {
-                                dayText = '后天';
                             } else {
-                                dayText = `${dayDiff}天后`;
+                                const tomorrow = new Date(today);
+                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                if (eventCST.toDateString() === tomorrow.toDateString()) {
+                                    dayText = '明天';
+                                } else {
+                                    const dayAfterTomorrow = new Date(tomorrow);
+                                    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+                                    if (eventCST.toDateString() === dayAfterTomorrow.toDateString()) {
+                                        dayText = '后天';
+                                    } else {
+                                        dayText = `${eventCST.getDate()}号`;
+                                    }
+                                }
                             }
-                            
-                            console.log(`返回${eventType}事件：`, {
-                                dayText: dayText,
-                                date: event.date,
-                                location: event.location,
-                                timeSlots: event.timeSlots
-                            });
                             
                             return {
                                 dayText: dayText,
@@ -8179,76 +8153,24 @@
                         }
                     }
                     
-                    console.log(`${eventType}没有找到任何事件`);
                     return null;
                 }
                 
-                // 初始化红石黑石图标
-                function initRedstoneBlackstoneIcons() {
-                    // 如果已经初始化过，直接返回
-                    if (window.redstoneBlackstoneIconsInitialized) {
-                        return;
-                    }
-                    
-                    const container = document.getElementById('redstone-blackstone-container');
-                    container.innerHTML = ''; // 清空容器
-                    
-                    // 创建红石图标
-                    const redstoneIcon = createEventIcon('redstone');
-                    if (redstoneIcon) {
-                        container.appendChild(redstoneIcon);
-                    }
-                    
-                    // 创建黑石图标
-                    const blackstoneIcon = createEventIcon('blackstone');
-                    if (blackstoneIcon) {
-                        container.appendChild(blackstoneIcon);
-                    }
-                    
-                    // 设置初始化标志
-                    window.redstoneBlackstoneIconsInitialized = true;
-                    
-                    // 启动定时器，每秒更新一次日期文本
-                    setInterval(updateEventIconDates, 1000);
-                }
-                
-                // 更新图标下方的日期文本
-                function updateEventIconDates() {
-                    const icons = document.querySelectorAll('#redstone-blackstone-container .magic-icon-item');
-                    icons.forEach((icon, index) => {
-                        const eventType = index === 0 ? 'redstone' : 'blackstone';
-                        const nearestEvent = getNearestEvent(eventType);
-                        
-                        if (nearestEvent) {
-                            // 更新日期文本
-                            const dateElement = icon.querySelector('div:last-child');
-                            if (dateElement) {
-                                dateElement.textContent = nearestEvent.dayText;
-                            }
-                        }
-                    });
-                }
-                
-                // 将函数添加到全局作用域
-                window.initRedstoneBlackstoneIcons = initRedstoneBlackstoneIcons;
-                
-                // 初始化标志，确保只初始化一次
-                window.redstoneIconsInitialized = false;
-                
                 // 创建事件图标
                 function createEventIcon(eventType) {
-                    // 确定图标和文本
-                    const iconSrc = eventType === 'redstone' ? './icons/hong.png' : './icons/hei.png';
-                    const iconAlt = eventType === 'redstone' ? '红石' : '黑石';
-                    const eventTypeName = eventType === 'redstone' ? '红石' : '黑石';
-                    
-                    // 获取最近事件
                     const nearestEvent = getNearestEvent(eventType);
-                    let displayText = nearestEvent ? nearestEvent.dayText : '暂无';
+                    if (!nearestEvent) return null;
+                    
+                    // 不需要检查容器，直接创建图标元素
                     
                     // 创建图标元素
                     const eventElement = document.createElement('div');
                     eventElement.className = 'magic-icon-item cursor-pointer relative';
+                    
+                    // 确定图标和文本
+                    const iconSrc = eventType === 'redstone' ? './icons/hong.png' : './icons/hei.png';
+                    const iconAlt = eventType === 'redstone' ? '红石' : '黑石';
+                    const eventTypeName = eventType === 'redstone' ? '红石' : '黑石';
                     
                     eventElement.innerHTML = `
                         <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
@@ -8258,49 +8180,44 @@
                                  onerror="this.src='./icons/${eventType === 'redstone' ? 'jl' : 'dl'}.png'; this.alt='${iconAlt}';" />
                         </div>
                         <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
-                            ${displayText}
+                            ${nearestEvent.dayText}
                         </div>
                     `;
                     
-                    // 添加点击事件 - 点击时刷新详细信息
+                    // 添加点击事件
                     eventElement.addEventListener('click', () => {
-                        // 点击时重新获取最新事件信息
-                        const latestEvent = getNearestEvent(eventType);
-                        if (latestEvent) {
-                            // 获取最近事件的第一个时间段
-                            const firstTimeSlot = latestEvent.timeSlots[0];
-                            const eventDate = new Date(latestEvent.date);
-                            const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
-                            
-                            // 格式化时间
-                            const eventDay = eventCST.getDate();
-                            const startTime = firstTimeSlot.start;
-                            
-                            // 显示完整地址（如云野-村庄）
-                            const fullLocation = `${latestEvent.location.area}-${latestEvent.location.name}`;
-                            
-                            // 显示通知
-                            showNotification(`${eventTypeName}: ${eventDay}号 ${startTime} ${fullLocation}`);
-                        } else {
-                            showNotification(`${eventTypeName}: 暂无近期事件`);
-                        }
+                        // 获取最近事件的第一个时间段
+                        const firstTimeSlot = nearestEvent.timeSlots[0];
+                        const eventDate = new Date(nearestEvent.date);
+                        const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
+                        
+                        // 格式化时间
+                        const eventDay = eventCST.getDate();
+                        const startTime = firstTimeSlot.start;
+                        
+                        // 显示完整地址（如云野-村庄）
+                        const fullLocation = `${nearestEvent.location.area}-${nearestEvent.location.name}`;
+                        
+                        // 显示通知
+                        showNotification(`${eventTypeName}: ${eventDay}号 ${startTime} ${fullLocation}`);
                     });
                     
                     return eventElement;
                 }
                 
-                // 页面加载完成后初始化，确保只初始化一次
-                document.addEventListener('DOMContentLoaded', () => {
-                    console.log('DOM加载完成，准备初始化红黑石图标');
-                    // 直接调用初始化函数，不依赖DOMContentLoaded
-                    initRedstoneBlackstoneIcons();
-                });
+                // 添加红石图标
+                const redstoneIcon = createEventIcon('redstone');
+                if (redstoneIcon) {
+                    const container = document.getElementById('redstone-blackstone-container');
+                    container.appendChild(redstoneIcon);
+                }
                 
-                // 立即调用初始化函数，确保图标被创建
-                setTimeout(() => {
-                    console.log('立即初始化红黑石图标');
-                    initRedstoneBlackstoneIcons();
-                }, 100);
+                // 添加黑石图标
+                const blackstoneIcon = createEventIcon('blackstone');
+                if (blackstoneIcon) {
+                    const container = document.getElementById('redstone-blackstone-container');
+                    container.appendChild(blackstoneIcon);
+                }
             })();
         });
 
@@ -8343,7 +8260,7 @@
         setInterval(updateCurrentTime, 1000);
         
         // 每秒更新一次事件状态，保持事件状态的及时更新
-        setInterval(updateTasks, 2000);
+        setInterval(updateTasks, 1000);
         
         // 跨天自动刷新功能
         function getCurrentPacificDate() {
