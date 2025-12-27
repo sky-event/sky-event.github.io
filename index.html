@@ -232,8 +232,11 @@
                     height: 20px !important;
                 }
                 
+
+                
                 /* 季蜡和大蜡图标 */
-                #magic-icons-container img {
+                #magic-icons-container img,
+                #redstone-blackstone-container img {
                     width: 42px !important;
                     height: 42px !important;
                 }
@@ -654,9 +657,14 @@
             }
             /* 手机端优化 */
             @media (max-width: 640px) {
-                /* 调整主题切换按钮和魔法图标更靠左 */
-                .theme-toggle-container {
+                /* 调整左侧主题切换按钮和魔法图标更靠左 */
+                .theme-toggle-container:not(.right-icons-container) {
                     left: 6px !important;
+                }
+                
+                /* 调整右侧图标容器更靠右 */
+                .right-icons-container {
+                    right: 6px !important;
                 }
                 
                 /* 保持主题按钮和魔法图标之间的适当距离 */
@@ -665,13 +673,15 @@
                 }
                 
                 /* 进一步减少魔法图标之间的间距，使其更紧凑 */
-            #magic-icons-container {
+            #magic-icons-container,
+            #redstone-blackstone-container {
                 gap: 1px !important; /* 魔法图标内部更紧凑 */
                 margin-top: 0 !important; /* 移除负margin */
             }
             
             /* 调整魔法、大蜡、季蜡图标的大小，使其更紧凑 */
-            #magic-icons-container img {
+            #magic-icons-container img,
+            #redstone-blackstone-container img {
                 width: 34px !important;
                 height: 34px !important;
             }
@@ -680,6 +690,8 @@
                 .theme-toggle {
                     @apply p-2 w-[34px] h-[34px] flex items-center justify-center;
                 }
+                
+
                 
                 /* 调整主题切换按钮图标大小，保持比例合适 */
                 .theme-toggle img {
@@ -894,7 +906,7 @@
     </script>
 </head>
 <body class="bg-dark-bg min-h-screen flex items-center justify-center p-4 font-inter text-dark-text m-0">
-    <!-- 主题切换按钮 -->
+    <!-- 主题切换按钮和左侧魔法图标 -->
     <div class="theme-toggle-container fixed top-4 left-4 z-40 flex flex-col items-center rounded-2xl">
         <button id="theme-toggle" class="theme-toggle p-2 rounded-2xl bg-dark-card border border-gray-700 text-dark-text hover:bg-dark-hover transition-colors shadow-lg" title="切换主题">
             <img src="./icons/moon.png" id="theme-icon" alt="切换主题" style="width: 16px; height: 16px;" />
@@ -906,6 +918,22 @@
         <!-- 魔法图标显示区域 -->
         <div id="magic-icons-container" class="space-y-1 flex flex-col items-center">
             <!-- 魔法图标将通过JavaScript动态添加 -->
+        </div>
+    </div>
+    
+    <!-- 右侧红石和黑石图标 - 与左侧完全对称 -->
+    <div class="theme-toggle-container right-icons-container fixed top-4 right-4 z-40 flex flex-col items-center rounded-2xl">
+        <!-- 占位元素 - 与左侧主题切换按钮结构完全一致但不可见 -->
+        <div class="theme-toggle p-2 rounded-2xl bg-transparent border-none text-dark-text hover:bg-transparent transition-colors shadow-none" style="visibility: hidden;">
+            <div style="width: 16px; height: 16px;"></div>
+        </div>
+        
+        <!-- 间隔区域 - 与左侧完全一致 -->
+        <div class="h-8"></div>
+        
+        <!-- 红石和黑石图标显示区域 -->
+        <div id="redstone-blackstone-container" class="space-y-1 flex flex-col items-center">
+            <!-- 红石和黑石图标将通过JavaScript动态添加 -->
         </div>
     </div>
 
@@ -5620,8 +5648,14 @@
                     if (foundImageUrl) {
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
-                        // 设置背景图，不添加过渡效果以避免闪烁
-                        taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = function() {
+                            // 图片完全加载后再设置背景图
+                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                        };
+                        img.src = foundImageUrl;
                     }
                 }, 50);
             }
@@ -5676,7 +5710,7 @@
                     e.stopPropagation();
                     e.preventDefault();
                     
-                    // 跳转到 HHS.html
+                    // 跳转到 hhs.html
                     window.open('hhs.html', '_self');
                 });
             }
@@ -6106,6 +6140,9 @@
             currentAllTasks = getAllTasksWithStatus();
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
             
+            // 保存当前滚动位置
+            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+            
             taskCarousel.innerHTML = '';
             
             if (currentVisibleTasks.length === 0) {
@@ -6124,6 +6161,11 @@
             updateAllTasksList();
             adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
+            
+            // 恢复滚动位置
+            setTimeout(() => {
+                window.scrollTo(0, scrollPosition);
+            }, 0);
         }
 
         // 更新所有事件列表
@@ -7281,10 +7323,10 @@
                 }
                 
                 return new Promise((resolve) => {
-                    const maxImages = 50; // 最多检测50张图片
+                    const maxImages = 10; // 最多检测10张图片
                     const foundImages = Array(maxImages * 2).fill(null); // 创建固定长度数组
                     let checked = 0;
-                    let totalToCheck = maxImages * 2; // 同时检查PNG和JPG格式
+                    let totalToCheck = maxImages * 2; // 同时检查PNG和WEBP格式
                     
                     // 检测数字命名的图片（如1.png, 1.jpg, 2.png, 2.jpg等）
                     for (let i = 1; i <= maxImages; i++) {
@@ -7306,23 +7348,23 @@
                         };
                         pngImg.src = `./images/Sky/${pngImageName}?t=${Date.now()}`; // 加时间戳防止缓存
                         
-                        // 检测JPG格式
-                        const jpgImageName = `${i}.jpg`;
-                        const jpgImg = new Image();
-                        jpgImg.onload = () => {
-                            foundImages[(i - 1) * 2 + 1] = jpgImageName; // 按序号放入对应位置
+                        // 检测WEBP格式
+                        const webpImageName = `${i}.webp`;
+                        const webpImg = new Image();
+                        webpImg.onload = () => {
+                            foundImages[(i - 1) * 2 + 1] = webpImageName; // 按序号放入对应位置
                             checked++;
                             if (checked === totalToCheck) {
                                 addLocalImagesAndResolve();
                             }
                         };
-                        jpgImg.onerror = () => {
+                        webpImg.onerror = () => {
                             checked++;
                             if (checked === totalToCheck) {
                                 addLocalImagesAndResolve();
                             }
                         };
-                        jpgImg.src = `./images/Sky/${jpgImageName}?t=${Date.now()}`; // 加时间戳防止缓存
+                        webpImg.src = `./images/Sky/${webpImageName}?t=${Date.now()}`; // 加时间戳防止缓存
                     }
                     
                     // 添加本地缓存图片并返回结果
@@ -7735,7 +7777,7 @@
                 function detectImages(dayIndex) {
                     return new Promise((resolve) => {
                         const folderName = `l${dayIndex + 1}`;
-                        const maxImages = 50; // 最多检测50张图片
+                        const maxImages = 3; // 最多检测3张图片
                         const foundImages = Array(maxImages).fill(null); // 创建固定长度数组
                         let checked = 0;
                         
@@ -7754,10 +7796,10 @@
                             .then(files => {
                                 // 处理GitHub API返回的文件列表
                                 files.forEach(file => {
-                                    // 支持PNG和JPG格式
-                                    if (file.name.endsWith('.png') || file.name.endsWith('.jpg')) {
+                                    // 支持PNG和WEBP格式
+                                    if (file.name.endsWith('.png') || file.name.endsWith('.webp')) {
                                         // 提取数字部分
-                                        const numStr = file.name.match(/^(\d+)\.(png|jpg)$/);
+                                        const numStr = file.name.match(/^(\d+)\.(png|webp)$/);
                                         if (numStr) {
                                             const index = parseInt(numStr[1]) - 1;
                                             if (index >= 0 && index < maxImages) {
@@ -7781,10 +7823,10 @@
                                 checkLocalImages();
                             });
                         
-                        // 检测本地数字命名的图片（如1.png, 2.jpg等）
+                        // 检测本地数字命名的图片（如1.png, 2.webp等）
                         function checkLocalImages() {
-                            // 同时检测PNG和JPG格式
-                            const extensions = ['.png', '.jpg'];
+                            // 同时检测PNG和WEBP格式
+                            const extensions = ['.png', '.webp'];
                             let totalChecks = maxImages * extensions.length;
                             
                             for (let i = 1; i <= maxImages; i++) {
@@ -7841,6 +7883,335 @@
                 
                 container.appendChild(largeWaxElement);
             })();
+            
+            // 添加红石和黑石图标功能
+            (function() {
+                // 太平洋时区工具
+                const PacificTimeUtils = {
+                    getCurrentPacificTime() {
+                        const now = new Date();
+                        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                        // 太平洋时区相对于UTC的偏移量（小时）
+                        const pacificOffset = this.isPDT(now) ? -7 : -8;
+                        const pacificTime = new Date(utc + (3600000 * pacificOffset));
+                        return pacificTime;
+                    },
+                    
+                    isPDT(date = new Date()) {
+                        const year = date.getFullYear();
+                        
+                        // 太平洋夏令时规则：3月第二个周日 02:00 开始，11月第一个周日 02:00 结束
+                        const getDayOfMonth = (year, month, dayOfWeek, occurrence) => {
+                            const firstDay = new Date(year, month, 1);
+                            const firstDayOfWeek = firstDay.getDay();
+                            let offset = dayOfWeek - firstDayOfWeek;
+                            if (offset < 0) offset += 7;
+                            return 1 + offset + (occurrence - 1) * 7;
+                        };
+                        
+                        const marchSecondSunday = getDayOfMonth(year, 2, 0, 2); // 3月第二个周日
+                        const novemberFirstSunday = getDayOfMonth(year, 10, 0, 1); // 11月第一个周日
+                        
+                        const startDST = new Date(year, 2, marchSecondSunday, 2, 0, 0); // 3月开始
+                        const endDST = new Date(year, 10, novemberFirstSunday, 2, 0, 0); // 11月结束
+                        
+                        return date >= startDST && date < endDST;
+                    },
+                    
+                    // 根据时区调整时间显示（基于夏令时转换后的数据）
+                    adjustTimeForDisplay(timeSlots, eventDate) {
+                        const isPDT = this.isPDT(eventDate);
+                        
+                        // 如果当前是冬令时，所有时间+1小时
+                        if (!isPDT) {
+                            return timeSlots.map(slot => {
+                                const adjustTime = (timeStr) => {
+                                    let [hours, minutes] = timeStr.split(':').map(Number);
+                                    hours = (hours + 1) % 24;
+                                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                                };
+                                
+                                return {
+                                    start: adjustTime(slot.start),
+                                    end: adjustTime(slot.end)
+                                };
+                            });
+                        }
+                        
+                        // 夏令时期间直接返回原时间
+                        return timeSlots;
+                    }
+                };
+                
+                // 红石事件规则
+                const redstoneRules = {
+                    group1: {
+                        days: [1, 7, 13, 19, 25, 31],
+                        cancelDays: [1, 2], // 周一、周二取消
+                        timeSlots: [
+                            { start: "22:48", end: "02:40" },
+                            { start: "04:48", end: "08:40" },
+                            { start: "10:48", end: "14:40" }
+                        ]
+                    },
+                    group2: {
+                        days: [3, 9, 15, 21, 27],
+                        cancelDays: [2, 3], // 周二、周三取消
+                        timeSlots: [
+                            { start: "17:28", end: "21:20" },
+                            { start: "23:28", end: "03:20" },
+                            { start: "05:28", end: "09:20" }
+                        ]
+                    },
+                    group3: {
+                        days: [5, 11, 17, 23, 29],
+                        cancelDays: [3, 4], // 周三、周四取消
+                        timeSlots: [
+                            { start: "18:38", end: "22:30" },
+                            { start: "00:38", end: "04:30" },
+                            { start: "06:38", end: "10:30" }
+                        ]
+                    }
+                };
+                
+                // 黑石事件规则
+                const blackstoneRules = {
+                    group1: {
+                        days: [2, 6, 10, 14, 18, 22, 26, 30],
+                        cancelDays: [0, 1], // 周日、周一取消
+                        timeSlots: [
+                            { start: "17:18", end: "21:10" },
+                            { start: "07:18", end: "05:10" },
+                            { start: "09:18", end: "13:10" }
+                        ]
+                    },
+                    group2: {
+                        days: [4, 8, 12, 16, 20, 24, 28],
+                        cancelDays: [6, 0], // 周六、周日取消
+                        timeSlots: [
+                            { start: "16:58", end: "20:50" },
+                            { start: "00:58", end: "04:50" },
+                            { start: "08:58", end: "12:50" }
+                        ]
+                    }
+                };
+                
+                // 地点映射
+                const locationMap = {
+                    redstone: {
+                        1: { area: "云野", name: "云野山洞" },
+                        3: { area: "霞谷", name: "圆梦村" },
+                        5: { area: "禁阁", name: "星漠海滩" },
+                        7: { area: "雨林", name: "雨林宫殿" },
+                        9: { area: "暮土", name: "暗蟹沙原" },
+                        11: { area: "云野", name: "圣岛" },
+                        13: { area: "霞谷", name: "圆梦村" },
+                        15: { area: "禁阁", name: "星漠海滩" },
+                        17: { area: "雨林", name: "雨林高处" },
+                        19: { area: "暮土", name: "暮土墓园" },
+                        21: { area: "云野", name: "浮石鸟巢" },
+                        23: { area: "霞谷", name: "隐士山谷" },
+                        25: { area: "禁阁", name: "星漠海滩" },
+                        27: { area: "雨林", name: "大树屋" },
+                        29: { area: "暮土", name: "失落方舟" },
+                        31: { area: "云野", name: "云野山洞" }
+                    },
+                    blackstone: {
+                        2: { area: "雨林", name: "埋骨之地" },
+                        4: { area: "暮土", name: "破旧神庙" },
+                        6: { area: "云野", name: "云野村庄" },
+                        8: { area: "霞谷", name: "滑冰场" },
+                        10: { area: "禁阁", name: "星漠" },
+                        12: { area: "雨林", name: "雨林小溪" },
+                        14: { area: "暮土", name: "暮土战场" },
+                        16: { area: "云野", name: "蝴蝶平原" },
+                        18: { area: "霞谷", name: "滑冰场" },
+                        20: { area: "禁阁", name: "星漠" },
+                        22: { area: "雨林", name: "埋骨之地" },
+                        24: { area: "暮土", name: "破旧神庙" },
+                        26: { area: "云野", name: "云野村庄" },
+                        28: { area: "霞谷", name: "滑冰场" },
+                        30: { area: "禁阁", name: "星漠" }
+                    }
+                };
+                
+                // 获取红石事件
+                function getRedstoneEvents(date) {
+                    const dayOfMonth = date.getDate();
+                    const dayOfWeek = date.getDay(); // 0=周日, 1=周一, ..., 6=周六
+                    const events = [];
+                
+                    // 检查每个红石组
+                    Object.values(redstoneRules).forEach(group => {
+                        if (group.days.includes(dayOfMonth) && !group.cancelDays.includes(dayOfWeek)) {
+                            const location = locationMap.redstone[dayOfMonth];
+                            if (location) {
+                                // 根据时区调整时间显示
+                                const adjustedTimeSlots = PacificTimeUtils.adjustTimeForDisplay(group.timeSlots, date);
+                                
+                                events.push({
+                                    date: new Date(date),
+                                    timeSlots: adjustedTimeSlots,
+                                    originalTimeSlots: group.timeSlots, // 保存原始时间用于比较
+                                    location: location,
+                                    dayOfWeek: dayOfWeek,
+                                    type: 'redstone'
+                                });
+                            }
+                        }
+                    });
+                
+                    return events;
+                }
+                
+                // 获取黑石事件
+                function getBlackstoneEvents(date) {
+                    const dayOfMonth = date.getDate();
+                    const dayOfWeek = date.getDay(); // 0=周日, 1=周一, ..., 6=周六
+                    const events = [];
+                
+                    // 检查每个黑石组
+                    Object.values(blackstoneRules).forEach(group => {
+                        if (group.days.includes(dayOfMonth) && !group.cancelDays.includes(dayOfWeek)) {
+                            const location = locationMap.blackstone[dayOfMonth];
+                            if (location) {
+                                // 根据时区调整时间显示
+                                const adjustedTimeSlots = PacificTimeUtils.adjustTimeForDisplay(group.timeSlots, date);
+                                
+                                events.push({
+                                    date: new Date(date),
+                                    timeSlots: adjustedTimeSlots,
+                                    originalTimeSlots: group.timeSlots, // 保存原始时间用于比较
+                                    location: location,
+                                    dayOfWeek: dayOfWeek,
+                                    type: 'blackstone'
+                                });
+                            }
+                        }
+                    });
+                
+                    return events;
+                }
+                
+                // 获取最近的红石或黑石事件
+                function getNearestEvent(eventType) {
+                    const now = new Date();
+                    const pacificNow = PacificTimeUtils.getCurrentPacificTime();
+                    
+                    // 检查未来7天的事件
+                    for (let i = 0; i <= 7; i++) {
+                        const checkDate = new Date(pacificNow);
+                        checkDate.setDate(checkDate.getDate() + i);
+                        
+                        let events;
+                        if (eventType === 'redstone') {
+                            events = getRedstoneEvents(checkDate);
+                        } else {
+                            events = getBlackstoneEvents(checkDate);
+                        }
+                        
+                        if (events.length > 0) {
+                            const event = events[0];
+                            
+                            // 计算事件日期相对于今天的描述
+                            const today = new Date();
+                            const eventDate = new Date(event.date);
+                            const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
+                            
+                            let dayText;
+                            if (eventCST.toDateString() === today.toDateString()) {
+                                dayText = '今天';
+                            } else {
+                                const tomorrow = new Date(today);
+                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                if (eventCST.toDateString() === tomorrow.toDateString()) {
+                                    dayText = '明天';
+                                } else {
+                                    const dayAfterTomorrow = new Date(tomorrow);
+                                    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+                                    if (eventCST.toDateString() === dayAfterTomorrow.toDateString()) {
+                                        dayText = '后天';
+                                    } else {
+                                        dayText = `${eventCST.getDate()}号`;
+                                    }
+                                }
+                            }
+                            
+                            return {
+                                dayText: dayText,
+                                date: event.date,
+                                location: event.location,
+                                timeSlots: event.timeSlots
+                            };
+                        }
+                    }
+                    
+                    return null;
+                }
+                
+                // 创建事件图标
+                function createEventIcon(eventType) {
+                    const nearestEvent = getNearestEvent(eventType);
+                    if (!nearestEvent) return null;
+                    
+                    // 不需要检查容器，直接创建图标元素
+                    
+                    // 创建图标元素
+                    const eventElement = document.createElement('div');
+                    eventElement.className = 'magic-icon-item cursor-pointer relative';
+                    
+                    // 确定图标和文本
+                    const iconSrc = eventType === 'redstone' ? './icons/hong.png' : './icons/hei.png';
+                    const iconAlt = eventType === 'redstone' ? '红石' : '黑石';
+                    const eventTypeName = eventType === 'redstone' ? '红石' : '黑石';
+                    
+                    eventElement.innerHTML = `
+                        <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
+                            <img src="${iconSrc}" alt="${iconAlt}" 
+                                 style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
+                                 class="magic-icon hover:scale-110" 
+                                 onerror="this.src='./icons/${eventType === 'redstone' ? 'jl' : 'dl'}.png'; this.alt='${iconAlt}';" />
+                        </div>
+                        <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
+                            ${nearestEvent.dayText}
+                        </div>
+                    `;
+                    
+                    // 添加点击事件
+                    eventElement.addEventListener('click', () => {
+                        // 获取最近事件的第一个时间段
+                        const firstTimeSlot = nearestEvent.timeSlots[0];
+                        const eventDate = new Date(nearestEvent.date);
+                        const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
+                        
+                        // 格式化时间
+                        const eventDay = eventCST.getDate();
+                        const startTime = firstTimeSlot.start;
+                        
+                        // 显示完整地址（如云野-村庄）
+                        const fullLocation = `${nearestEvent.location.area}-${nearestEvent.location.name}`;
+                        
+                        // 显示通知
+                        showNotification(`${eventTypeName}: ${eventDay}号 ${startTime} ${fullLocation}`);
+                    });
+                    
+                    return eventElement;
+                }
+                
+                // 添加红石图标
+                const redstoneIcon = createEventIcon('redstone');
+                if (redstoneIcon) {
+                    const container = document.getElementById('redstone-blackstone-container');
+                    container.appendChild(redstoneIcon);
+                }
+                
+                // 添加黑石图标
+                const blackstoneIcon = createEventIcon('blackstone');
+                if (blackstoneIcon) {
+                    const container = document.getElementById('redstone-blackstone-container');
+                    container.appendChild(blackstoneIcon);
+                }
+            })();
         });
 
         // 更新当前时间显示
@@ -7864,7 +8235,7 @@
         // 每秒更新时间
         setInterval(updateCurrentTime, 1000);
         
-        // 每1秒更新一次事件状态，优化性能
+        // 每秒更新一次事件状态，保持事件状态的及时更新
         setInterval(updateTasks, 1000);
         
         // 跨天自动刷新功能

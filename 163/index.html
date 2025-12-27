@@ -34,7 +34,7 @@
                 // 预加载切换国服页面
                 var link163 = document.createElement('link');
                 link163.rel = 'prefetch';
-                link163.href = 'https://sky-event.pages.dev/index.html';
+                link163.href = '163/index.html';
                 document.head.appendChild(link163);
                 
                 // 预加载破晓日历页面
@@ -42,7 +42,7 @@
                 linkHHS.rel = 'prefetch';
                 linkHHS.href = 'hhs.html';
                 document.head.appendChild(linkHHS);
-            }, 5000); // 3秒后预加载
+            }, 3000); // 3秒后预加载
             
             // 添加窗口大小变化事件监听器，确保特殊通知容器与主容器等宽
             // 确保syncNotificationWidth函数已定义
@@ -235,8 +235,9 @@
                     height: 20px !important;
                 }
                 
-                /* 季蜡和大蜡图标 */
-                #magic-icons-container img {
+                /* 季蜡、大蜡、红石和黑石图标 */
+                #magic-icons-container img,
+                #redstone-blackstone-container img {
                     width: 42px !important;
                     height: 42px !important;
                 }
@@ -658,8 +659,12 @@
             /* 手机端优化 */
             @media (max-width: 640px) {
                 /* 调整主题切换按钮和魔法图标更靠左 */
-                .theme-toggle-container {
+                .theme-toggle-container:not(.right-icons-container) {
                     left: 6px !important;
+                }
+                /* 确保右侧图标容器始终在右侧 */
+                .right-icons-container {
+                    right: 6px !important;
                 }
                 
                 /* 保持主题按钮和魔法图标之间的适当距离 */
@@ -668,13 +673,15 @@
                 }
                 
                 /* 进一步减少魔法图标之间的间距，使其更紧凑 */
-            #magic-icons-container {
+            #magic-icons-container,
+            #redstone-blackstone-container {
                 gap: 1px !important; /* 魔法图标内部更紧凑 */
                 margin-top: 0 !important; /* 移除负margin */
             }
             
-            /* 调整魔法、大蜡、季蜡图标的大小，使其更紧凑 */
-            #magic-icons-container img {
+            /* 调整魔法、大蜡、季蜡、红石和黑石图标的大小，使其更紧凑 */
+            #magic-icons-container img,
+            #redstone-blackstone-container img {
                 width: 34px !important;
                 height: 34px !important;
             }
@@ -921,6 +928,15 @@
         </div>
     </div>
 
+    <!-- 右侧红石黑石图标容器 -->
+    <div class="theme-toggle-container right-icons-container fixed top-4 right-4 z-40 flex flex-col items-center rounded-2xl">
+        <div class="theme-toggle p-2 rounded-2xl bg-transparent border-none text-dark-text hover:bg-transparent transition-colors shadow-none" style="visibility: hidden;">
+            <div style="width: 16px; height: 16px;"></div>
+        </div>
+        <div class="h-8"></div>
+        <div id="redstone-blackstone-container" class="space-y-1 flex flex-col items-center"></div>
+    </div>
+
     <!-- 加载指示器 -->
     <div id="loading-indicator" class="fixed inset-0 flex items-center justify-center bg-dark-bg z-50 transition-opacity duration-500">
 <div class="loading-indicator text-2xl font-bold animate-pulse">Sky 事件 时间</div>
@@ -942,7 +958,7 @@
         
         <!-- 添加163图标链接 -->
         <div id="163-icon" class="lock-indicator" style="right: auto; left: 1rem;" title="切换国际服">
-            <a href="https://sky-event.pages.dev/index.html" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
+            <a href="163/index.html" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
                 <img src="icons/zg.svg" alt="163" style="width: 20px; height: 20px;">
             </a>
         </div>
@@ -3502,7 +3518,7 @@
             
             // GitHub Pages 配置
             const githubRepo = 'sky-event/sky-event.github.io';
-            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/main/163/images/${folderName}`;
+            const githubImageBaseUrl = `https://raw.githubusercontent.com/${githubRepo}/163/images/${folderName}`;
             
             // 加载图片函数 - 支持本地缓存图片、本地文件和云端图片
             const loadImage = (imageName, imgElement) => {
@@ -5631,8 +5647,14 @@
                     if (foundImageUrl) {
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
-                        // 设置背景图，不添加过渡效果以避免闪烁
-                        taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = function() {
+                            // 图片完全加载后再设置背景图
+                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                        };
+                        img.src = foundImageUrl;
                     }
                 }, 50);
             }
@@ -6117,6 +6139,9 @@
             currentAllTasks = getAllTasksWithStatus();
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
             
+            // 保存当前滚动位置
+            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+            
             taskCarousel.innerHTML = '';
             
             if (currentVisibleTasks.length === 0) {
@@ -6135,6 +6160,11 @@
             updateAllTasksList();
             adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
+            
+            // 恢复滚动位置
+            setTimeout(() => {
+                window.scrollTo(0, scrollPosition);
+            }, 0);
         }
 
         // 更新所有事件列表
@@ -8038,7 +8068,7 @@
         // 每秒更新时间
         setInterval(updateCurrentTime, 1000);
         
-        // 每1秒更新一次事件状态，优化性能
+        // 每秒更新一次事件状态，保持事件状态的及时更新
         setInterval(updateTasks, 1000);
         
         // 跨天自动刷新功能已关闭 - 不再基于太平洋时间进行跨天检查
@@ -8055,6 +8085,253 @@
               });
           });
         }
+
+        // 破晓红石地点推算函数
+        function getDawnRedstoneLocation(date, dayOfWeek) {
+            const dayOfMonth = date.getDate();
+            
+            // 暮土系 (日期: 1,6,11,16,21,26,31)
+            if ([1, 6, 11, 16, 21, 26, 31].includes(dayOfMonth)) {
+                if (dayOfWeek === 5) return { area: "暮土", name: "黑水港湾" };
+                if (dayOfWeek === 6) return { area: "暮土", name: "巨兽荒原" };
+                if (dayOfWeek === 0) return { area: "暮土", name: "失落方舟" };
+            }
+            
+            // 禁阁系 (日期: 2,7,12,17,22,27)
+            if ([2, 7, 12, 17, 22, 27].includes(dayOfMonth)) {
+                if ([5, 6, 0].includes(dayOfWeek)) return { area: "禁阁", name: "星漠海滩" };
+            }
+            
+            // 云野系 (日期: 3,8,13,18,23,28)
+            if ([3, 8, 13, 18, 23, 28].includes(dayOfMonth)) {
+                if (dayOfWeek === 5) return { area: "云野", name: "云顶浮石" };
+                if (dayOfWeek === 6) return { area: "云野", name: "幽光山洞" };
+                if (dayOfWeek === 0) return { area: "云野", name: "圣岛" };
+            }
+            
+            // 雨林系 (日期: 4,9,14,19,24,29)
+            if ([4, 9, 14, 19, 24, 29].includes(dayOfMonth)) {
+                if (dayOfWeek === 5) return { area: "雨林", name: "大树屋" };
+                if (dayOfWeek === 6) return { area: "雨林", name: "雨林神庙" };
+                if (dayOfWeek === 0) return { area: "雨林", name: "秘密花园" };
+            }
+            
+            // 霞谷系 (日期: 5,10,15,20,25,30)
+            if ([5, 10, 15, 20, 25, 30].includes(dayOfMonth)) {
+                if ([5, 6].includes(dayOfWeek)) return { area: "霞谷", name: "圆梦村" };
+                if (dayOfWeek === 0) return { area: "霞谷", name: "雪隐峰" };
+            }
+            
+            return null;
+        }
+        
+        // 破晓黑石地点推算函数
+        function getDawnBlackstoneLocation(date, dayOfWeek) {
+            const dayOfMonth = date.getDate();
+            
+            // 暮土系 (日期: 1,6,11,16,21,26,31)
+            if ([1, 6, 11, 16, 21, 26, 31].includes(dayOfMonth)) {
+                if (dayOfWeek === 2 && dayOfMonth <= 15) return { area: "暮土", name: "边陲荒漠" };
+                if (dayOfWeek === 3 && dayOfMonth >= 16) return { area: "暮土", name: "远古战场" };
+            }
+            
+            // 禁阁系 (日期: 2,7,12,17,22,27)
+            if ([2, 7, 12, 17, 22, 27].includes(dayOfMonth)) {
+                if (dayOfWeek === 2 && dayOfMonth <= 15) return { area: "禁阁", name: "星光沙漠" };
+                if (dayOfWeek === 3 && dayOfMonth >= 16) return { area: "禁阁", name: "星光沙漠" };
+            }
+            
+            // 云野系 (日期: 3,8,13,18,23,28)
+            if ([3, 8, 13, 18, 23, 28].includes(dayOfMonth)) {
+                if (dayOfWeek === 2 && dayOfMonth <= 15) return { area: "云野", name: "蝴蝶平原" };
+                if (dayOfWeek === 3 && dayOfMonth >= 16) return { area: "云野", name: "云野仙乡" };
+            }
+            
+            // 雨林系 (日期: 4,9,14,19,24,29)
+            if ([4, 9, 14, 19, 24, 29].includes(dayOfMonth)) {
+                if (dayOfWeek === 2 && dayOfMonth <= 15) return { area: "雨林", name: "荧光森林" };
+                if (dayOfWeek === 3 && dayOfMonth >= 16) return { area: "雨林", name: "密林遗迹" };
+            }
+            
+            // 霞谷系 (日期: 5,10,15,20,25,30)
+            if ([5, 10, 15, 20, 25, 30].includes(dayOfMonth)) {
+                if (dayOfWeek === 2 && dayOfMonth <= 15) return { area: "霞谷", name: "滑冰场" };
+                if (dayOfWeek === 3 && dayOfMonth >= 16) return { area: "霞谷", name: "滑冰场" };
+            }
+            
+            return null;
+        }
+        
+        // 获取破晓红石事件时间段
+        function getDawnRedstoneTimeSlots(date, dayOfWeek) {
+            const dayOfMonth = date.getDate();
+            const slots = [];
+            
+            // 周日事件
+            if (dayOfWeek === 0) {
+                slots.push(
+                    { start: "07:08", end: "08:00" },
+                    { start: "13:08", end: "14:00" },
+                    { start: "19:08", end: "20:00" }
+                );
+            }
+            
+            // 周六事件 (1-15号)
+            if (dayOfWeek === 6 && dayOfMonth >= 1 && dayOfMonth <= 15) {
+                slots.push(
+                    { start: "10:08", end: "11:00" },
+                    { start: "14:08", end: "15:00" },
+                    { start: "22:08", end: "23:00" }
+                );
+            }
+            
+            // 周五事件 (16号到月底)
+            if (dayOfWeek === 5 && dayOfMonth >= 16) {
+                slots.push(
+                    { start: "11:08", end: "12:00" },
+                    { start: "17:08", end: "18:00" },
+                    { start: "23:08", end: "24:00" }
+                );
+            }
+            
+            return slots;
+        }
+        
+        // 获取破晓黑石事件时间段
+        function getDawnBlackstoneTimeSlots(date, dayOfWeek) {
+            const dayOfMonth = date.getDate();
+            const slots = [];
+            
+            // 星期二事件 (上半月1-15日)
+            if (dayOfWeek === 2 && dayOfMonth <= 15) {
+                slots.push(
+                    { start: "09:08", end: "10:00" },
+                    { start: "14:08", end: "15:00" },
+                    { start: "19:08", end: "20:00" }
+                );
+            }
+            
+            // 星期三事件 (下半月16-31日)
+            if (dayOfWeek === 3 && dayOfMonth >= 16) {
+                slots.push(
+                    { start: "09:08", end: "10:00" },
+                    { start: "15:08", end: "16:00" },
+                    { start: "21:08", end: "22:00" }
+                );
+            }
+            
+            return slots;
+        }
+
+        // 获取最近的红石或黑石事件
+        function getNearestEvent(eventType) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // 最多查找未来7天的事件
+            for (let i = 0; i < 7; i++) {
+                const checkDate = new Date(today);
+                checkDate.setDate(today.getDate() + i);
+                const dayOfWeek = checkDate.getDay();
+                
+                let slots, location;
+                if (eventType === 'redstone') {
+                    slots = getDawnRedstoneTimeSlots(checkDate, dayOfWeek);
+                    location = getDawnRedstoneLocation(checkDate, dayOfWeek);
+                } else {
+                    slots = getDawnBlackstoneTimeSlots(checkDate, dayOfWeek);
+                    location = getDawnBlackstoneLocation(checkDate, dayOfWeek);
+                }
+                
+                if (slots.length > 0 && location) {
+                    // 查找当天未结束的最近事件
+                    for (const slot of slots) {
+                        const [startHour, startMinute] = slot.start.split(':');
+                        const [endHour, endMinute] = slot.end.split(':');
+                        
+                        const eventStart = new Date(checkDate);
+                        eventStart.setHours(parseInt(startHour), parseInt(startMinute));
+                        
+                        const eventEnd = new Date(checkDate);
+                        eventEnd.setHours(parseInt(endHour), parseInt(endMinute));
+                        
+                        // 如果事件尚未开始或正在进行，返回该事件
+                        if (now <= eventEnd) {
+                            return {
+                                date: checkDate,
+                                timeSlot: slot,
+                                location: location,
+                                dayOffset: i
+                            };
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        // 创建事件图标
+        function createEventIcon(eventType) {
+            const container = document.getElementById('redstone-blackstone-container');
+            const nearestEvent = getNearestEvent(eventType);
+            
+            if (nearestEvent) {
+                const { date, timeSlot, location, dayOffset } = nearestEvent;
+                
+                // 确定显示文本
+                let displayText;
+                switch (dayOffset) {
+                    case 0: displayText = '今天'; break;
+                    case 1: displayText = '明天'; break;
+                    case 2: displayText = '后天'; break;
+                    default: displayText = `${dayOffset}天后`;
+                }
+                
+                // 确定图标和名称
+                const iconName = eventType === 'redstone' ? 'hong' : 'hei';
+                const eventName = eventType === 'redstone' ? '红石' : '黑石';
+                
+                // 创建图标元素
+                const iconElement = document.createElement('div');
+                iconElement.className = 'magic-icon-item cursor-pointer relative';
+                iconElement.title = `${eventName}：${date.getDate()}号 ${timeSlot.start} ${location.area}-${location.name}`;
+                iconElement.innerHTML = `
+                    <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible;">
+                        <img src="./icons/${iconName}.png" alt="${eventName}" 
+                             style="object-fit: contain; transition: transform 0.2s ease;" 
+                             class="magic-icon hover:scale-110" 
+                             onerror="this.src='./icons/zh.png'; this.alt='${eventName}';" />
+                    </div>
+                    <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
+                        ${displayText}
+                    </div>
+                `;
+                
+                // 添加点击事件
+                iconElement.addEventListener('click', () => {
+                    const dateStr = date.getDate();
+                    showNotification(`${eventName}: ${dateStr}号 ${timeSlot.start} ${location.area}-${location.name}`);
+                });
+                
+                container.appendChild(iconElement);
+            }
+        }
+
+        // 初始化红石黑石图标
+        function initRedstoneBlackstoneIcons() {
+            const container = document.getElementById('redstone-blackstone-container');
+            container.innerHTML = ''; // 清空容器
+            
+            // 创建红石图标
+            createEventIcon('redstone');
+            
+            // 创建黑石图标
+            createEventIcon('blackstone');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initRedstoneBlackstoneIcons);
     </script>
 </body>
 </html>
