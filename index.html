@@ -2162,10 +2162,11 @@
             
             // 太平洋时间到北京时间的转换
             PDTtoCST(pdtDate) {
-                // 根据是否处于PDT期间使用不同的偏移量
+                // 固定使用+16小时偏移量，因为12月是冬令时（PST）
                 // PST (UTC-8) → CST (UTC+8) = +16小时
-                // PDT (UTC-7) → CST (UTC+8) = +15小时
-                const offsetHours = this.isPDT(pdtDate) ? 15 : 16;
+                // 注意：pdtDate是一个Date对象，其内部存储的是UTC时间
+                // 我们需要将太平洋时间转换为北京时间，所以需要添加16小时
+                const offsetHours = 16;
                 return new Date(pdtDate.getTime() + offsetHours * 60 * 60 * 1000);
             },
             
@@ -3506,7 +3507,7 @@
             
             setTimeout(() => {
                 notification.classList.remove('show');
-            }, 3000);
+            }, 4000);
         }
 
         // 大蜡图片显示功能
@@ -6143,19 +6144,110 @@
             // 保存当前滚动位置
             const scrollPosition = window.scrollY || document.documentElement.scrollTop;
             
-            taskCarousel.innerHTML = '';
-            
+            // 实现增量DOM更新，只更新变化的部分
             if (currentVisibleTasks.length === 0) {
-                taskCarousel.innerHTML = `
-                    <div class="text-center py-4 text-dark-textSecondary">
-                        目前没有即将开始的事件
-                    </div>
-                `;
+                // 没有可见任务，检查是否需要更新
+                if (taskCarousel.children.length === 0 || !taskCarousel.querySelector('.text-center')) {
+                    taskCarousel.innerHTML = `
+                        <div class="text-center py-4 text-dark-textSecondary">
+                            目前没有即将开始的事件
+                        </div>
+                    `;
+                }
             } else {
-                currentVisibleTasks.forEach(task => {
-                    const taskEl = createTaskElement(task);
-                    taskCarousel.appendChild(taskEl);
+                // 有可见任务，实现增量更新
+                const existingTasks = {};
+                const newTaskIds = new Set();
+                
+                // 收集现有任务元素
+                for (let i = 0; i < taskCarousel.children.length; i++) {
+                    const child = taskCarousel.children[i];
+                    if (child.dataset.taskId) {
+                        existingTasks[child.dataset.taskId] = child;
+                    }
+                }
+                
+                // 更新或创建任务元素
+                currentVisibleTasks.forEach((task, index) => {
+                    newTaskIds.add(task.id);
+                    let taskEl = existingTasks[task.id];
+                    
+                    if (taskEl) {
+                        // 任务元素已存在，只更新倒计时文本
+                        const countdownEl = taskEl.querySelector('.countdown');
+                        if (countdownEl) {
+                            countdownEl.textContent = task.countdownText;
+                        }
+                        
+                        // 更新进行中状态
+                        const ongoingIndicator = taskEl.querySelector('.ongoing-indicator');
+                        // 更精确地选择时间文本元素，避免选择进行中指示器
+                        // 确保只选择一个元素进行更新，避免重复添加内容
+                        const timeTextEl = taskEl.querySelector('.task-title .text-primary span:not(.countdown):not(.ongoing-indicator)');
+                        if (!timeTextEl) {
+                            // 如果没找到，再尝试找.ongoing-text元素
+                            const ongoingTextEls = taskEl.querySelectorAll('.text-primary span.ongoing-text');
+                            timeTextEl = ongoingTextEls.length > 0 ? ongoingTextEls[0] : null;
+                        }
+                        if (timeTextEl) {
+                            if (task.status === "ongoing") {
+                                timeTextEl.classList.add('ongoing-text');
+                                timeTextEl.textContent = task.timeText;
+                                if (!ongoingIndicator) {
+                                    // 添加进行中指示器
+                                    const indicator = document.createElement('span');
+                                    indicator.className = 'inline-block w-2 h-2 bg-priority-high rounded-full ongoing-indicator mr-1';
+                                    timeTextEl.parentNode.insertBefore(indicator, timeTextEl);
+                                }
+                            } else {
+                                timeTextEl.classList.remove('ongoing-text');
+                                timeTextEl.textContent = task.timeText;
+                                if (ongoingIndicator) {
+                                    ongoingIndicator.remove();
+                                }
+                            }
+                        }
+                        
+                        // 检查任务元素是否被重新用于不同的任务
+                        const currentTaskId = taskEl.dataset.taskId;
+                        if (currentTaskId !== task.id) {
+                            // 如果任务ID不同，更新元素的任务ID并重新设置背景图
+                            taskEl.dataset.taskId = task.id;
+                            // 重置背景图，让createTaskElement重新生成
+                            taskEl.style.backgroundImage = '';
+                            // 重新创建任务元素，确保所有内容都正确更新
+                            const newTaskEl = createTaskElement(task);
+                            taskCarousel.replaceChild(newTaskEl, taskEl);
+                        } else {
+                            // 从现有任务列表中移除，避免被删除
+                            delete existingTasks[task.id];
+                            
+                            // 确保任务元素顺序正确
+                            if (taskCarousel.children[index] !== taskEl) {
+                                taskCarousel.insertBefore(taskEl, taskCarousel.children[index]);
+                            }
+                        }
+                    } else {
+                        // 任务元素不存在，创建新元素
+                        taskEl = createTaskElement(task);
+                        if (taskCarousel.children[index]) {
+                            taskCarousel.insertBefore(taskEl, taskCarousel.children[index]);
+                        } else {
+                            taskCarousel.appendChild(taskEl);
+                        }
+                    }
                 });
+                
+                // 删除不再需要的任务元素
+                for (const taskId in existingTasks) {
+                    existingTasks[taskId].remove();
+                }
+                
+                // 清理可能存在的空状态提示
+                const emptyState = taskCarousel.querySelector('.text-center');
+                if (emptyState) {
+                    emptyState.remove();
+                }
             }
             
             updateAllTasksList();
@@ -6180,21 +6272,113 @@
         // 更新所有事件列表
         function updateAllTasksList() {
             const allTasks = getAllTasksWithStatus();
-            allTasksListEl.innerHTML = '';
             
+            // 实现增量DOM更新，只更新变化的部分
             if (allTasks.length === 0) {
-                allTasksListEl.innerHTML = `
-                    <div class="text-center py-4 text-dark-textSecondary text-sm">
-                        暂无未来事件
-                    </div>
-                `;
+                // 没有未来任务，检查是否需要更新
+                if (allTasksListEl.children.length === 0 || !allTasksListEl.querySelector('.text-center')) {
+                    allTasksListEl.innerHTML = `
+                        <div class="text-center py-4 text-dark-textSecondary text-sm">
+                            暂无未来事件
+                        </div>
+                    `;
+                }
                 return;
             }
             
-            allTasks.forEach(task => {
-                const taskEl = createMiniTaskElement(task);
-                allTasksListEl.appendChild(taskEl);
+            // 有未来任务，实现增量更新
+            const existingTasks = {};
+            const newTaskIds = new Set();
+            
+            // 收集现有任务元素
+            for (let i = 0; i < allTasksListEl.children.length; i++) {
+                const child = allTasksListEl.children[i];
+                if (child.dataset.taskId) {
+                    existingTasks[child.dataset.taskId] = child;
+                }
+            }
+            
+            // 更新或创建任务元素
+            allTasks.forEach((task, index) => {
+                newTaskIds.add(task.id);
+                let taskEl = existingTasks[task.id];
+                
+                if (taskEl) {
+                    // 任务元素已存在，只更新倒计时文本
+                    const countdownEl = taskEl.querySelector('.countdown');
+                    if (countdownEl) {
+                        countdownEl.textContent = task.countdownText;
+                    }
+                    
+                    // 更新进行中状态
+                    const ongoingIndicator = taskEl.querySelector('.ongoing-indicator');
+                    // 更精确地选择时间文本元素，避免选择进行中指示器
+                    // 确保只选择一个元素进行更新，避免重复添加内容
+                    const timeTextEl = taskEl.querySelector('.future-task-item .text-primary span:not(.countdown):not(.ongoing-indicator)');
+                    if (!timeTextEl) {
+                        // 如果没找到，再尝试找.ongoing-text元素
+                        const ongoingTextEls = taskEl.querySelectorAll('.future-task-item .text-primary span.ongoing-text');
+                        timeTextEl = ongoingTextEls.length > 0 ? ongoingTextEls[0] : null;
+                    }
+                    if (timeTextEl) {
+                        if (task.status === "ongoing") {
+                            timeTextEl.classList.add('ongoing-text');
+                            timeTextEl.textContent = task.timeText;
+                            if (!ongoingIndicator) {
+                                // 添加进行中指示器
+                                const indicator = document.createElement('span');
+                                indicator.className = 'inline-block w-2 h-2 bg-priority-high rounded-full ongoing-indicator mr-1';
+                                timeTextEl.parentNode.insertBefore(indicator, timeTextEl);
+                            }
+                        } else {
+                            timeTextEl.classList.remove('ongoing-text');
+                            timeTextEl.textContent = task.timeText;
+                            if (ongoingIndicator) {
+                                ongoingIndicator.remove();
+                            }
+                        }
+                    }
+                    
+                    // 检查任务元素是否被重新用于不同的任务
+                    const currentTaskId = taskEl.dataset.taskId;
+                    if (currentTaskId !== task.id) {
+                        // 如果任务ID不同，更新元素的任务ID并重新设置背景图
+                        taskEl.dataset.taskId = task.id;
+                        // 重置背景图，让createMiniTaskElement重新生成
+                        taskEl.style.backgroundImage = '';
+                        // 重新创建任务元素，确保所有内容都正确更新
+                        const newTaskEl = createMiniTaskElement(task);
+                        allTasksListEl.replaceChild(newTaskEl, taskEl);
+                    } else {
+                        // 从现有任务列表中移除，避免被删除
+                        delete existingTasks[task.id];
+                        
+                        // 确保任务元素顺序正确
+                        if (allTasksListEl.children[index] !== taskEl) {
+                            allTasksListEl.insertBefore(taskEl, allTasksListEl.children[index]);
+                        }
+                    }
+                } else {
+                    // 任务元素不存在，创建新元素
+                    taskEl = createMiniTaskElement(task);
+                    if (allTasksListEl.children[index]) {
+                        allTasksListEl.insertBefore(taskEl, allTasksListEl.children[index]);
+                    } else {
+                        allTasksListEl.appendChild(taskEl);
+                    }
+                }
             });
+            
+            // 删除不再需要的任务元素
+            for (const taskId in existingTasks) {
+                existingTasks[taskId].remove();
+            }
+            
+            // 清理可能存在的空状态提示
+            const emptyState = allTasksListEl.querySelector('.text-center');
+            if (emptyState) {
+                emptyState.remove();
+            }
         }
 
         // 调整容器大小和样式
@@ -7937,78 +8121,61 @@
                     
                     // 根据时区调整时间显示（基于夏令时转换后的数据）
                     adjustTimeForDisplay(timeSlots, eventDate) {
-                        const isPDT = this.isPDT(eventDate);
-                        
-                        // 如果当前是冬令时，所有时间+1小时
-                        if (!isPDT) {
-                            return timeSlots.map(slot => {
-                                const adjustTime = (timeStr) => {
-                                    let [hours, minutes] = timeStr.split(':').map(Number);
-                                    hours = (hours + 1) % 24;
-                                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-                                };
-                                
-                                return {
-                                    start: adjustTime(slot.start),
-                                    end: adjustTime(slot.end)
-                                };
-                            });
-                        }
-                        
-                        // 夏令时期间直接返回原时间
+                        // 时间槽已经是调整后的太平洋时间，不再需要额外调整
+                        // 直接返回原时间槽
                         return timeSlots;
                     }
                 };
                 
-                // 红石事件规则
+                // 红石事件规则（太平洋时间）
                 const redstoneRules = {
                     group1: {
                         days: [1, 7, 13, 19, 25, 31],
                         cancelDays: [1, 2], // 周一、周二取消
                         timeSlots: [
-                            { start: "22:48", end: "02:40" },
-                            { start: "04:48", end: "08:40" },
-                            { start: "10:48", end: "14:40" }
+                            { start: "07:48", end: "11:40" },
+                            { start: "13:48", end: "17:40" },
+                            { start: "19:48", end: "23:40" }
                         ]
                     },
                     group2: {
                         days: [3, 9, 15, 21, 27],
                         cancelDays: [2, 3], // 周二、周三取消
                         timeSlots: [
-                            { start: "17:28", end: "21:20" },
-                            { start: "23:28", end: "03:20" },
-                            { start: "05:28", end: "09:20" }
+                            { start: "02:28", end: "06:20" },
+                            { start: "08:28", end: "12:20" },
+                            { start: "14:28", end: "18:20" }
                         ]
                     },
                     group3: {
                         days: [5, 11, 17, 23, 29],
                         cancelDays: [3, 4], // 周三、周四取消
                         timeSlots: [
-                            { start: "18:38", end: "22:30" },
-                            { start: "00:38", end: "04:30" },
-                            { start: "06:38", end: "10:30" }
+                            { start: "03:38", end: "07:30" },
+                            { start: "09:38", end: "13:30" },
+                            { start: "15:38", end: "19:30" }
                         ]
                     }
                 };
                 
-                // 黑石事件规则
+                // 黑石事件规则（太平洋时间）
                 const blackstoneRules = {
                     group1: {
                         days: [2, 6, 10, 14, 18, 22, 26, 30],
                         cancelDays: [0, 1], // 周日、周一取消
                         timeSlots: [
-                            { start: "17:18", end: "21:10" },
-                            { start: "01:18", end: "05:10" },
-                            { start: "09:18", end: "13:10" }
+                            { start: "02:18", end: "06:10" },
+                            { start: "10:18", end: "14:10" },
+                            { start: "18:18", end: "22:10" }
                         ]
                     },
                     group2: {
                         days: [4, 8, 12, 16, 20, 24, 28],
                         cancelDays: [6, 0], // 周六、周日取消
                         timeSlots: [
-                            { start: "16:58", end: "20:50" },
-                            { start: "00:58", end: "04:50" },
-                            { start: "08:58", end: "12:50" }
+                            { start: "01:58", end: "05:50" },
+                            { start: "09:58", end: "13:50" },
+                            { start: "17:58", end: "21:50" }
                         ]
                     }
                 };
@@ -8136,46 +8303,116 @@
                         if (events.length > 0) {
                             const event = events[0];
                             
-                            // 计算事件日期相对于今天的描述
-                            const today = new Date();
-                            const eventDate = new Date(event.date);
-                            const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
+                            // 检查该事件是否有未过去的时间槽
+                            const now = new Date();
+                            let hasFutureSlot = false;
                             
-                            let dayText;
-                            // 重置时间，只比较日期部分
-                            const todayOnly = new Date(today);
-                            todayOnly.setHours(0, 0, 0, 0);
-                            
-                            const eventDateOnly = new Date(eventCST);
-                            eventDateOnly.setHours(0, 0, 0, 0);
-                            
-                            // 计算相差天数
-                            const timeDiff = eventDateOnly - todayOnly;
-                            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                            
-                            if (dayDiff === 0) {
-                                dayText = '今天';
-                            } else if (dayDiff === 1) {
-                                dayText = '明天';
-                            } else if (dayDiff === 2) {
-                                dayText = '后天';
-                            } else {
-                                dayText = `${dayDiff}天后`;
+                            // 遍历所有时间槽，检查是否有未过去的
+                            for (const timeSlot of event.timeSlots) {
+                                const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
+                                
+                                // 创建太平洋时间的时间槽开始时间
+                                // 注意：event.date的日期部分已经是太平洋日期，我们只需要设置时间
+                                // 然后直接将太平洋时间加上16小时转换为北京时间
+                                const slotStartPDT = new Date(event.date);
+                                slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
+                                
+                                // 转换为北京时间
+                                // 北京时间 = 太平洋时间 + 16小时（冬令时）
+                                const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                
+                                // 如果时间槽开始时间在当前时间之后，说明这个事件还有未来的时间槽
+                                if (slotStartCST > now) {
+                                    hasFutureSlot = true;
+                                    break;
+                                }
                             }
                             
-                            console.log(`返回${eventType}事件：`, {
-                                dayText: dayText,
-                                date: event.date,
-                                location: event.location,
-                                timeSlots: event.timeSlots
-                            });
-                            
-                            return {
-                                dayText: dayText,
-                                date: event.date,
-                                location: event.location,
-                                timeSlots: event.timeSlots
-                            };
+                            // 如果有未过去的时间槽，或者今天是事件日期但时间槽还没开始，就返回这个事件
+                            // 否则继续检查下一个日期
+                            if (hasFutureSlot) {
+                                // 计算事件日期相对于今天的描述
+                                const today = new Date();
+                                
+                                // 获取事件的太平洋日期（这是一个包含太平洋时间的Date对象）
+                                const eventPDT = new Date(event.date);
+                                
+                                // 遍历时间槽，找到第一个未过去的时间槽
+                                let firstFutureSlot = null;
+                                let firstFutureSlotCST = null;
+                                
+                                for (const timeSlot of event.timeSlots) {
+                                    const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
+                                    
+                                    // 创建太平洋时间的时间槽开始时间
+                                    // 注意：eventPDT的日期部分已经是太平洋日期，我们只需要设置时间
+                                    // 然后直接将太平洋时间加上16小时转换为北京时间
+                                    const slotStartPDT = new Date(eventPDT);
+                                    slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
+                                    
+                                    // 转换为北京时间
+                                    // 北京时间 = 太平洋时间 + 16小时（冬令时）
+                                    const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                    
+                                    // 如果这个时间槽还没过去，就使用它
+                                    if (slotStartCST > today) {
+                                        firstFutureSlot = timeSlot;
+                                        firstFutureSlotCST = slotStartCST;
+                                        break;
+                                    }
+                                }
+                                
+                                let dayText;
+                                
+                                if (firstFutureSlotCST) {
+                                    // 重置时间，只比较日期部分
+                                    const todayOnly = new Date(today);
+                                    todayOnly.setHours(0, 0, 0, 0);
+                                    
+                                    const eventDateOnly = new Date(firstFutureSlotCST);
+                                    eventDateOnly.setHours(0, 0, 0, 0);
+                                    
+                                    // 计算相差天数
+                                    const timeDiff = eventDateOnly - todayOnly;
+                                    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                                    
+                                    // 调试信息
+                                    console.log(`事件太平洋日期: ${eventPDT.toLocaleDateString('zh-CN')}`);
+                                    console.log(`第一个未来时间槽: ${firstFutureSlot.start}`);
+                                    console.log(`事件北京时间: ${firstFutureSlotCST.toLocaleDateString('zh-CN')}`);
+                                    console.log(`今天日期: ${todayOnly.toLocaleDateString('zh-CN')}`);
+                                    console.log(`天数差: ${dayDiff}`);
+                                    
+                                    if (dayDiff === 0) {
+                                        dayText = '今天';
+                                    } else if (dayDiff === 1) {
+                                        dayText = '明天';
+                                    } else if (dayDiff === 2) {
+                                        dayText = '后天';
+                                    } else {
+                                        dayText = `${dayDiff}天后`;
+                                    }
+                                } else {
+                                    // 如果没有未来的时间槽，使用默认显示
+                                    dayText = '暂无';
+                                }
+                                
+                                console.log(`返回${eventType}事件：`, {
+                                    dayText: dayText,
+                                    date: event.date,
+                                    location: event.location,
+                                    timeSlots: event.timeSlots
+                                });
+                                
+                                return {
+                                    dayText: dayText,
+                                    date: event.date,
+                                    location: event.location,
+                                    timeSlots: event.timeSlots
+                                };
+                            } else {
+                                console.log(`${eventType}事件日期${checkDate}的所有时间槽都已过去，继续检查下一个日期`);
+                            }
                         }
                     }
                     
@@ -8267,20 +8504,93 @@
                         // 点击时重新获取最新事件信息
                         const latestEvent = getNearestEvent(eventType);
                         if (latestEvent) {
-                            // 获取最近事件的第一个时间段
-                            const firstTimeSlot = latestEvent.timeSlots[0];
-                            const eventDate = new Date(latestEvent.date);
-                            const eventCST = TimeZoneUtils.PDTtoCST(eventDate);
-                            
-                            // 格式化时间
-                            const eventDay = eventCST.getDate();
-                            const startTime = firstTimeSlot.start;
+                            const now = new Date(); // 当前北京时间
                             
                             // 显示完整地址（如云野-村庄）
                             const fullLocation = `${latestEvent.location.area}-${latestEvent.location.name}`;
                             
-                            // 显示通知
-                            showNotification(`${eventTypeName}: ${eventDay}号 ${startTime} ${fullLocation}`);
+                            // 找出当前时间应该显示的时间槽：下一个即将到来的时间槽
+                            let targetTimeSlot = null;
+                            let targetCSTDateTime = null;
+                            
+                            // 获取事件的太平洋日期
+                            // 注意：latestEvent.date已经是太平洋时间的Date对象
+                            // 我们需要直接使用它，而不是重新创建Date对象
+                            const eventPDT = latestEvent.date;
+                            
+                            // 遍历所有时间槽，这些时间槽是太平洋时间
+                            for (const timeSlot of latestEvent.timeSlots) {
+                                const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
+                                const [endHourPDT, endMinutePDT] = timeSlot.end.split(':').map(Number);
+                                
+                                // 创建太平洋时间的时间槽开始时间
+                                // 注意：eventPDT的日期部分已经是太平洋日期，我们只需要设置时间
+                                // 然后直接将太平洋时间加上16小时转换为北京时间
+                                const slotStartPDT = new Date(eventPDT);
+                                slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
+                                
+                                // 创建太平洋时间的时间槽结束时间
+                                const slotEndPDT = new Date(eventPDT);
+                                slotEndPDT.setHours(endHourPDT, endMinutePDT, 0, 0);
+                                
+                                // 处理跨天情况
+                                if (slotEndPDT < slotStartPDT) {
+                                    slotEndPDT.setDate(slotEndPDT.getDate() + 1);
+                                }
+                                
+                                // 转换为北京时间
+                                // 北京时间 = 太平洋时间 + 16小时（冬令时）
+                                const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                const slotEndCST = new Date(slotEndPDT.getTime() + 16 * 60 * 60 * 1000);
+                                
+                                // 检查当前时间是否在这个时间槽内
+                                if (now >= slotStartCST && now < slotEndCST) {
+                                    targetTimeSlot = timeSlot;
+                                    targetCSTDateTime = slotStartCST;
+                                    break;
+                                }
+                                // 检查这个时间槽是否在当前时间之后
+                                else if (slotStartCST > now) {
+                                    targetTimeSlot = timeSlot;
+                                    targetCSTDateTime = slotStartCST;
+                                    break;
+                                }
+                            }
+                            
+                            // 如果没有找到未来的时间槽（所有时间槽都在今天之前），使用第一个时间槽
+                            if (!targetTimeSlot) {
+                                targetTimeSlot = latestEvent.timeSlots[0];
+                                const [startHourPDT, startMinutePDT] = targetTimeSlot.start.split(':').map(Number);
+                                const slotStartPDT = new Date(eventPDT);
+                                slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
+                                targetCSTDateTime = TimeZoneUtils.PDTtoCST(slotStartPDT);
+                            }
+                            
+                            // 格式化北京时间显示
+                            const cstDate = targetCSTDateTime.getDate();
+                            const cstHours = targetCSTDateTime.getHours().toString().padStart(2, '0');
+                            const cstMinutes = targetCSTDateTime.getMinutes().toString().padStart(2, '0');
+                            
+                            // 获取目标时间槽的结束时间
+                            const [endHourPDT, endMinutePDT] = targetTimeSlot.end.split(':').map(Number);
+                            const slotEndPDT = new Date(eventPDT);
+                            slotEndPDT.setHours(endHourPDT, endMinutePDT, 0, 0);
+                            
+                            // 处理跨天情况
+                            if (slotEndPDT < new Date(eventPDT.setHours(...targetTimeSlot.start.split(':').map(Number)))) {
+                                slotEndPDT.setDate(slotEndPDT.getDate() + 1);
+                            }
+                            
+                            // 转换结束时间为北京时间
+                            const slotEndCST = new Date(slotEndPDT.getTime() + 16 * 60 * 60 * 1000);
+                            const endCstHours = slotEndCST.getHours().toString().padStart(2, '0');
+                            const endCstMinutes = slotEndCST.getMinutes().toString().padStart(2, '0');
+                            
+                            // 格式化完整时间范围
+                            const formattedCSTTime = `${cstHours}:${cstMinutes}-${endCstHours}:${endCstMinutes}`;
+                            
+                            // 显示通知，使用转换后的北京时间和完整时间范围
+                            showNotification(`${eventTypeName}: ${cstDate}号 ${formattedCSTTime} ${fullLocation}`);
                         } else {
                             showNotification(`${eventTypeName}: 暂无近期事件`);
                         }

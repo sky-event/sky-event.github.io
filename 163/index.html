@@ -131,6 +131,23 @@
             .ongoing-indicator {
                 animation: pulse 2s infinite;
             }
+            /* 图标样式 */
+            .icon-small {
+                width: 16px;
+                height: 16px;
+            }
+            .icon-medium {
+                width: 20px;
+                height: 20px;
+            }
+            .invisible-element {
+                visibility: hidden;
+            }
+            /* 定位样式 */
+            .lock-indicator-left {
+                right: auto;
+                left: 1rem;
+            }
             @keyframes pulse {
                 0% { opacity: 1; }
                 50% { opacity: 0.6; }
@@ -911,12 +928,26 @@
             document.documentElement.setAttribute('data-theme', initialTheme);
         })();
     </script>
+    <style>
+        #spray-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        #app-container {
+            z-index: 2;
+            position: relative;
+        }
+    </style>
 </head>
 <body class="bg-dark-bg min-h-screen flex items-center justify-center p-4 font-inter text-dark-text m-0">
     <!-- 主题切换按钮 -->
     <div class="theme-toggle-container fixed top-4 left-4 z-40 flex flex-col items-center rounded-2xl">
-        <button id="theme-toggle" class="theme-toggle p-2 rounded-2xl bg-dark-card border border-gray-700 text-dark-text hover:bg-dark-hover transition-colors shadow-lg" title="切换主题">
-            <img src="./icons/moon.png" id="theme-icon" alt="切换主题" style="width: 16px; height: 16px;" />
+        <button type="button" id="theme-toggle" class="theme-toggle p-2 rounded-2xl bg-dark-card border border-gray-700 text-dark-text hover:bg-dark-hover transition-colors shadow-lg" title="切换主题" aria-label="切换主题">
+            <img src="./icons/moon.png" id="theme-icon" alt="切换主题" class="icon-small">
         </button>
         
         <!-- 间隔区域 -->
@@ -930,8 +961,8 @@
 
     <!-- 右侧红石黑石图标容器 -->
     <div class="theme-toggle-container right-icons-container fixed top-4 right-4 z-40 flex flex-col items-center rounded-2xl">
-        <div class="theme-toggle p-2 rounded-2xl bg-transparent border-none text-dark-text hover:bg-transparent transition-colors shadow-none" style="visibility: hidden;">
-            <div style="width: 16px; height: 16px;"></div>
+        <div class="theme-toggle p-2 rounded-2xl bg-transparent border-none text-dark-text hover:bg-transparent transition-colors shadow-none invisible-element">
+            <div class="icon-small"></div>
         </div>
         <div class="h-8"></div>
         <div id="redstone-blackstone-container" class="space-y-1 flex flex-col items-center"></div>
@@ -950,16 +981,16 @@
         <div id="app-container" class="bg-dark-card rounded-2xl shadow-lg task-transition border border-gray-700 w-auto max-w-md app-expanded relative opacity-0 translate-y-4 transition-all duration-800">
         <div id="lock-indicator" class="lock-indicator" title="破晓 日历">
             <a href="hhs.html" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors" id="hhs-link">
-                <img src="icons/hs.png" alt="Lock" style="width: 20px; height: 20px;">
+                <img src="icons/hs.png" alt="Lock" class="icon-medium">
             </a>
         </div>
         
 
         
         <!-- 添加163图标链接 -->
-        <div id="163-icon" class="lock-indicator" style="right: auto; left: 1rem;" title="切换国际服">
+        <div id="icon-163" class="lock-indicator lock-indicator-left" title="切换国际服">
             <a href="https://sky-event.pages.dev/" target="_self" class="text-dark-textSecondary hover:text-primary transition-colors">
-                <img src="icons/zg.svg" alt="163" style="width: 20px; height: 20px;">
+                <img src="icons/zg.svg" alt="163" class="icon-medium">
             </a>
         </div>
         
@@ -1062,7 +1093,7 @@
         <div class="bg-dark-card rounded-xl shadow-xl p-6 w-full max-w-md relative z-10 transform transition-all border border-gray-700 modal-content">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold text-dark-text">确认删除</h3>
-                <button id="close-delete-modal" class="text-dark-textSecondary hover:text-dark-text">
+                <button type="button" id="close-delete-modal" class="text-dark-textSecondary hover:text-dark-text" aria-label="关闭">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
@@ -1070,8 +1101,8 @@
             <p class="text-dark-textSecondary mb-6">您确定要删除这个事件吗？此操作无法撤销。</p>
             
             <div class="flex justify-end space-x-3">
-                <button id="cancel-delete" class="px-4 py-2 border border-gray-600 rounded-lg text-dark-text hover:bg-dark-hover transition-colors">取消</button>
-                <button id="confirm-delete" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                <button type="button" id="cancel-delete" class="px-4 py-2 border border-gray-600 rounded-lg text-dark-text hover:bg-dark-hover transition-colors">取消</button>
+                <button type="button" id="confirm-delete" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
                     确认删除
                 </button>
             </div>
@@ -1084,7 +1115,7 @@
         <div class="bg-dark-card rounded-xl shadow-xl p-6 w-full max-w-md relative z-10 transform transition-all border border-gray-700 modal-content">
             <div class="flex justify-between items-center mb-4">
                 <h3 id="modal-title" class="text-lg font-semibold text-dark-text">添加新事件</h3>
-                <button id="close-modal" class="text-dark-textSecondary hover:text-dark-text">
+                <button type="button" id="close-modal" class="text-dark-textSecondary hover:text-dark-text" aria-label="关闭">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
@@ -1192,9 +1223,9 @@
                         <div id="daily-times-container" class="time-container space-y-2">
                             <div class="time-input-group flex items-center gap-2">
                                 <input type="time" name="daily-start-time" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-time-input">
-                                <button type="button" class="remove-time-btn text-red-500 hover:text-red-600">
-                                    <i class="fa fa-trash"></i>
-                                </button>
+                                <button type="button" class="remove-time-btn text-red-500 hover:text-red-600" aria-label="删除时间">
+                                <i class="fa fa-trash"></i>
+                            </button>
                             </div>
                         </div>
                         <button type="button" id="add-daily-time" class="mt-2 text-sm text-primary hover:text-primary/80 add-time-btn">
@@ -1234,31 +1265,31 @@
                     <label class="block text-sm font-medium text-dark-textSecondary mb-2">每周重复日期</label>
                     <div class="weekday-checkboxes flex flex-wrap gap-2 mb-3">
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="1" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="1" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">一</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="2" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="2" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">二</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="3" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="3" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">三</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="4" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="4" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">四</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="5" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="5" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">五</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="6" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="6" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">六</span>
                         </label>
                         <label class="day-checkbox bg-dark-card border border-gray-600 hover:bg-dark-hover cursor-pointer">
-                            <input type="checkbox" name="weekday" value="0" class="hidden peer">
+                            <input type="checkbox" name="weekday[]" value="0" class="hidden peer">
                             <span class="text-xs peer-checked:text-primary">日</span>
                         </label>
                     </div>
@@ -1314,7 +1345,7 @@
                     <div id="monthly-dates-container" class="date-container space-y-2 mb-3">
                         <div class="date-input-group flex items-center gap-2">
                             <input type="number" name="monthly-start-date" min="1" max="31" value="1" class="flex-1 px-3 py-2 border border-gray-600 rounded-lg bg-dark-bg text-dark-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent start-date-input">
-                            <button type="button" class="remove-date-btn text-red-500 hover:text-red-600">
+                            <button type="button" class="remove-date-btn text-red-500 hover:text-red-600" aria-label="删除日期">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </div>
@@ -1418,127 +1449,127 @@
                     <label class="block text-sm font-medium text-dark-textSecondary mb-2">选择日期</label>
                     <div class="grid grid-cols-7 gap-2 mb-3">
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="1" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="1" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>1</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="2" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="2" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>2</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="3" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="3" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>3</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="4" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="4" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>4</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="5" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="5" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>5</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="6" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="6" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>6</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="7" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="7" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>7</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="8" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="8" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>8</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="9" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="9" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>9</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="10" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="10" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>10</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="11" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="11" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>11</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="12" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="12" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>12</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="13" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="13" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>13</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="14" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="14" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>14</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="15" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="15" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>15</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="16" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="16" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>16</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="17" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="17" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>17</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="18" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="18" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>18</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="19" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="19" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>19</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="20" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="20" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>20</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="21" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="21" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>21</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="22" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="22" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>22</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="23" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="23" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>23</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="24" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="24" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>24</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="25" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="25" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>25</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="26" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="26" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>26</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="27" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>27</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="28" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>28</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="29" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>29</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="30" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>30</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="checkbox" name="monthly_interval-day" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
+                            <input type="checkbox" name="monthly_interval-day[]" value="31" class="rounded border-gray-600 bg-dark-bg text-primary focus:ring-primary">
                             <span>31</span>
                         </label>
                     </div>
@@ -1580,7 +1611,7 @@
 
     <!-- 下载按钮 -->
     <div class="download-container relative">
-        <button id="download-btn" class="download-btn">
+        <button type="button" id="download-btn" class="download-btn" aria-label="下载">
             <img src="icons/an.png" alt="下载">
         </button>
 
@@ -1590,21 +1621,6 @@
     
     <!-- 拉花喷射效果canvas -->
     <canvas id="spray-canvas"></canvas>
-    
-    <style>
-        #spray-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1000;
-            pointer-events: none;
-        }
-        
-        #app-container {
-            z-index: 2;
-            position: relative;
-        }
-    </style>
     
     <script>
         // 拉花喷射效果实现
@@ -1997,7 +2013,7 @@
         animate();
     </script>
     <div class="save-container relative">
-        <button id="manual-save-btn" class="save-btn">
+        <button type="button" id="manual-save-btn" class="save-btn" aria-label="保存">
             <img src="icons/an.png" alt="保存">
         </button>
     </div>
@@ -2820,8 +2836,8 @@
                     <h3 class="text-lg font-semibold mb-4">请输入管理员密码</h3>
                     <input type="password" id="password-input" class="w-full px-4 py-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="密码">
                     <div class="flex justify-end space-x-2">
-                        <button id="password-cancel" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">取消</button>
-                        <button id="password-confirm" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">确认</button>
+                        <button type="button" id="password-cancel" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">取消</button>
+                        <button type="button" id="password-confirm" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">确认</button>
                     </div>
                 </div>
             </div>
@@ -3505,7 +3521,7 @@
             
             setTimeout(() => {
                 notification.classList.remove('show');
-            }, 3000);
+            }, 4000);
         }
 
         // 大蜡图片显示功能
@@ -3586,16 +3602,16 @@
                             <img id="large-wax-image" src="" 
                                  alt="大蜡位置" 
                                  class="w-auto h-auto max-w-[90vw] max-h-[90vh] object-contain transition-all duration-300" 
-                                 style="opacity: 0; transition: opacity 0.3s ease-in 0.1s;" />
+                                 style="opacity: 0; transition: opacity 0.3s ease-in 0.1s;">
                         </div>
                     </div>
                     
                     <!-- 左右翻页按钮 - 根据图片数量和当前位置显示 -->
                     ${imageList.length > 1 ? `
-                        <button id="large-wax-prev" class="fixed left-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-70 hover:bg-opacity-90 p-2 sm:p-3 rounded-full shadow-lg z-20 transition-all opacity-0 invisible" style="transition: opacity 0.3s ease-in;">
+                        <button type="button" id="large-wax-prev" class="fixed left-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-70 hover:bg-opacity-90 p-2 sm:p-3 rounded-full shadow-lg z-20 transition-all opacity-0 invisible" style="transition: opacity 0.3s ease-in;">
                             <i class="fa fa-chevron-left text-2xl sm:text-3xl font-bold"></i>
                         </button>
-                        <button id="large-wax-next" class="fixed right-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-70 hover:bg-opacity-90 p-2 sm:p-3 rounded-full shadow-lg z-20 transition-all opacity-100 visible" style="transition: opacity 0.3s ease-in;">
+                        <button type="button" id="large-wax-next" class="fixed right-4 top-1/2 transform -translate-y-1/2 text-white bg-black bg-opacity-70 hover:bg-opacity-90 p-2 sm:p-3 rounded-full shadow-lg z-20 transition-all opacity-100 visible" style="transition: opacity 0.3s ease-in;">
                             <i class="fa fa-chevron-right text-2xl sm:text-3xl font-bold"></i>
                         </button>
                     ` : ''}
@@ -6148,28 +6164,115 @@
             // 保存当前滚动位置
             const scrollPosition = window.scrollY || document.documentElement.scrollTop;
             
-            taskCarousel.innerHTML = '';
-            
+            // 实现增量DOM更新，只更新变化的部分
             if (currentVisibleTasks.length === 0) {
-                taskCarousel.innerHTML = `
-                    <div class="text-center py-4 text-dark-textSecondary">
-                        目前没有即将开始的事件
-                    </div>
-                `;
+                // 没有可见任务，检查是否需要更新
+                if (taskCarousel.children.length === 0 || !taskCarousel.querySelector('.text-center')) {
+                    taskCarousel.innerHTML = `
+                        <div class="text-center py-4 text-dark-textSecondary">
+                            目前没有即将开始的事件
+                        </div>
+                    `;
+                }
             } else {
-                currentVisibleTasks.forEach(task => {
-                    const taskEl = createTaskElement(task);
-                    taskCarousel.appendChild(taskEl);
+                // 有可见任务，实现增量更新
+                const existingTasks = {};
+                const newTaskIds = new Set();
+                
+                // 收集现有任务元素
+                for (let i = 0; i < taskCarousel.children.length; i++) {
+                    const child = taskCarousel.children[i];
+                    if (child.dataset.taskId) {
+                        existingTasks[child.dataset.taskId] = child;
+                    }
+                }
+                
+                // 更新或创建任务元素
+                currentVisibleTasks.forEach((task, index) => {
+                    newTaskIds.add(task.id);
+                    let taskEl = existingTasks[task.id];
+                    
+                    if (taskEl) {
+                        // 任务元素已存在，只更新倒计时文本
+                        const countdownEl = taskEl.querySelector('.countdown');
+                        if (countdownEl) {
+                            countdownEl.textContent = task.countdownText;
+                        }
+                        
+                        // 更新进行中状态
+                        const ongoingIndicator = taskEl.querySelector('.ongoing-indicator');
+                        // 更精确地选择时间文本元素，避免选择进行中指示器
+                        const timeTextEl = taskEl.querySelector('.task-title .text-primary span:not(.countdown):not(.ongoing-indicator), .text-primary span.ongoing-text');
+                        if (timeTextEl) {
+                            if (task.status === "ongoing") {
+                                timeTextEl.classList.add('ongoing-text');
+                                timeTextEl.textContent = task.timeText;
+                                if (!ongoingIndicator) {
+                                    // 添加进行中指示器
+                                    const indicator = document.createElement('span');
+                                    indicator.className = 'inline-block w-2 h-2 bg-priority-high rounded-full ongoing-indicator mr-1';
+                                    timeTextEl.parentNode.insertBefore(indicator, timeTextEl);
+                                }
+                            } else {
+                                timeTextEl.classList.remove('ongoing-text');
+                                timeTextEl.textContent = task.timeText;
+                                if (ongoingIndicator) {
+                                    ongoingIndicator.remove();
+                                }
+                            }
+                        }
+                        
+                        // 检查任务元素是否被重新用于不同的任务
+                        const currentTaskId = taskEl.dataset.taskId;
+                        if (currentTaskId !== task.id) {
+                            // 如果任务ID不同，更新元素的任务ID并重新设置背景图
+                            taskEl.dataset.taskId = task.id;
+                            // 重置背景图，让createTaskElement重新生成
+                            taskEl.style.backgroundImage = '';
+                            // 重新创建任务元素，确保所有内容都正确更新
+                            const newTaskEl = createTaskElement(task);
+                            taskCarousel.replaceChild(newTaskEl, taskEl);
+                        } else {
+                            // 从现有任务列表中移除，避免被删除
+                            delete existingTasks[task.id];
+                            
+                            // 确保任务元素顺序正确
+                            if (taskCarousel.children[index] !== taskEl) {
+                                taskCarousel.insertBefore(taskEl, taskCarousel.children[index]);
+                            }
+                        }
+                    } else {
+                        // 任务元素不存在，创建新元素
+                        taskEl = createTaskElement(task);
+                        if (taskCarousel.children[index]) {
+                            taskCarousel.insertBefore(taskEl, taskCarousel.children[index]);
+                        } else {
+                            taskCarousel.appendChild(taskEl);
+                        }
+                    }
                 });
+                
+                // 删除不再需要的任务元素
+                for (const taskId in existingTasks) {
+                    existingTasks[taskId].remove();
+                }
+                
+                // 清理可能存在的空状态提示
+                const emptyState = taskCarousel.querySelector('.text-center');
+                if (emptyState) {
+                    emptyState.remove();
+                }
             }
             
             updateAllTasksList();
-            adjustContainerSize(hasVisibleContent);
+            // 修复安卓设备回顶问题：移除adjustContainerSize调用，避免频繁修改容器样式
+            // adjustContainerSize(hasVisibleContent);
             updateSpecialNotification(); // 更新特殊通知
             
-            // 优化：只有当用户没有主动滚动时才恢复滚动位置
-            // 添加滚动标志，避免在用户主动滚动时强制恢复
-            if (!userIsScrolling) {
+            // 优化：只有当用户没有主动滚动且不是移动设备时才恢复滚动位置
+            // 修复安卓设备模拟器的回顶现象
+            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!userIsScrolling && !isMobile) {
                 setTimeout(() => {
                     const currentScroll = window.scrollY || document.documentElement.scrollTop;
                     // 只有当滚动位置变化较大时才恢复
@@ -6183,25 +6286,119 @@
         // 更新所有事件列表
         function updateAllTasksList() {
             const allTasks = getAllTasksWithStatus();
-            allTasksListEl.innerHTML = '';
             
+            // 实现增量DOM更新，只更新变化的部分
             if (allTasks.length === 0) {
-                allTasksListEl.innerHTML = `
-                    <div class="text-center py-4 text-dark-textSecondary text-sm">
-                        暂无未来事件
-                    </div>
-                `;
+                // 没有未来任务，检查是否需要更新
+                if (allTasksListEl.children.length === 0 || !allTasksListEl.querySelector('.text-center')) {
+                    allTasksListEl.innerHTML = `
+                        <div class="text-center py-4 text-dark-textSecondary text-sm">
+                            暂无未来事件
+                        </div>
+                    `;
+                }
                 return;
             }
             
-            allTasks.forEach(task => {
-                const taskEl = createMiniTaskElement(task);
-                allTasksListEl.appendChild(taskEl);
+            // 有未来任务，实现增量更新
+            const existingTasks = {};
+            const newTaskIds = new Set();
+            
+            // 收集现有任务元素
+            for (let i = 0; i < allTasksListEl.children.length; i++) {
+                const child = allTasksListEl.children[i];
+                if (child.dataset.taskId) {
+                    existingTasks[child.dataset.taskId] = child;
+                }
+            }
+            
+            // 更新或创建任务元素
+            allTasks.forEach((task, index) => {
+                newTaskIds.add(task.id);
+                let taskEl = existingTasks[task.id];
+                
+                if (taskEl) {
+                    // 任务元素已存在，只更新倒计时文本
+                    const countdownEl = taskEl.querySelector('.countdown');
+                    if (countdownEl) {
+                        countdownEl.textContent = task.countdownText;
+                    }
+                    
+                    // 更新进行中状态
+                    const ongoingIndicator = taskEl.querySelector('.ongoing-indicator');
+                    // 更精确地选择时间文本元素，避免选择进行中指示器
+                        const timeTextEl = taskEl.querySelector('.future-task-item .text-primary span:not(.countdown):not(.ongoing-indicator), .future-task-item .text-primary span.ongoing-text');
+                    if (timeTextEl) {
+                        if (task.status === "ongoing") {
+                            timeTextEl.classList.add('ongoing-text');
+                            timeTextEl.textContent = task.timeText;
+                            if (!ongoingIndicator) {
+                                // 添加进行中指示器
+                                const indicator = document.createElement('span');
+                                indicator.className = 'inline-block w-2 h-2 bg-priority-high rounded-full ongoing-indicator mr-1';
+                                timeTextEl.parentNode.insertBefore(indicator, timeTextEl);
+                            }
+                        } else {
+                            timeTextEl.classList.remove('ongoing-text');
+                            timeTextEl.textContent = task.timeText;
+                            if (ongoingIndicator) {
+                                ongoingIndicator.remove();
+                            }
+                        }
+                    }
+                    
+                    // 检查任务元素是否被重新用于不同的任务
+                    const currentTaskId = taskEl.dataset.taskId;
+                    if (currentTaskId !== task.id) {
+                        // 如果任务ID不同，更新元素的任务ID并重新设置背景图
+                        taskEl.dataset.taskId = task.id;
+                        // 重置背景图，让createMiniTaskElement重新生成
+                        taskEl.style.backgroundImage = '';
+                        // 重新创建任务元素，确保所有内容都正确更新
+                        const newTaskEl = createMiniTaskElement(task);
+                        allTasksListEl.replaceChild(newTaskEl, taskEl);
+                    } else {
+                        // 从现有任务列表中移除，避免被删除
+                        delete existingTasks[task.id];
+                        
+                        // 确保任务元素顺序正确
+                        if (allTasksListEl.children[index] !== taskEl) {
+                            allTasksListEl.insertBefore(taskEl, allTasksListEl.children[index]);
+                        }
+                    }
+                } else {
+                    // 任务元素不存在，创建新元素
+                    taskEl = createMiniTaskElement(task);
+                    if (allTasksListEl.children[index]) {
+                        allTasksListEl.insertBefore(taskEl, allTasksListEl.children[index]);
+                    } else {
+                        allTasksListEl.appendChild(taskEl);
+                    }
+                }
             });
+            
+            // 删除不再需要的任务元素
+            for (const taskId in existingTasks) {
+                existingTasks[taskId].remove();
+            }
+            
+            // 清理可能存在的空状态提示
+            const emptyState = allTasksListEl.querySelector('.text-center');
+            if (emptyState) {
+                emptyState.remove();
+            }
         }
 
         // 调整容器大小和样式
         function adjustContainerSize(hasContent) {
+            // 检测移动设备
+            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            // 在移动设备上，避免频繁修改容器样式导致的滚动问题
+            if (isMobile) {
+                return;
+            }
+            
             if (hasContent) {
                 appContainer.classList.remove('app-compact');
                 appContainer.classList.add('app-expanded');
@@ -7777,7 +7974,7 @@
                             <img src="./icons/sb.png" alt="双倍魔法" 
                                  style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
                                  class="magic-icon hover:scale-110" 
-                                 onerror="this.src='./icons/zh.png'; this.alt='双倍魔法';" />
+                                 onerror="this.src='./icons/zh.png'; this.alt='双倍魔法';">
                         </div>
                     `;
                     
@@ -7801,7 +7998,7 @@
                                 <img src="./icons/${magic.png}" alt="${magic.name}" 
                                      style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
                                      class="magic-icon hover:scale-110" 
-                                     onerror="this.src='./icons/zh.png'; this.alt='魔法图标';" />
+                                     onerror="this.src='./icons/zh.png'; this.alt='魔法图标';">
                             </div>
                         `;
                         
@@ -7838,7 +8035,7 @@
                         <img src="./icons/jl.png" alt="季蜡" 
                              style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
                              class="magic-icon hover:scale-110" 
-                             onerror="this.src='./icons/zh.png'; this.alt='季蜡';" />
+                             onerror="this.src='./icons/zh.png'; this.alt='季蜡';">
                     </div>
                     <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
                         ${currentMap}
@@ -8004,7 +8201,7 @@
                         <img src="./icons/dl.png" alt="大蜡" 
                              style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
                              class="magic-icon hover:scale-110" 
-                             onerror="this.src='./icons/zh.png'; this.alt='大蜡';" />
+                             onerror="this.src='./icons/zh.png'; this.alt='大蜡';">
                     </div>
                     <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
                         ${displayLocation}
@@ -8325,23 +8522,28 @@
                 // 创建图标元素
                 const iconElement = document.createElement('div');
                 iconElement.className = 'magic-icon-item cursor-pointer relative';
-                iconElement.title = `${eventName}：${date.getDate()}号 ${timeSlot.start} ${location.area}-${location.name}`;
+                iconElement.title = `${eventName}：${date.getDate()}号 ${timeSlot.start}-${timeSlot.end} ${location.area}-${location.name}`;
                 iconElement.innerHTML = `
                     <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible;">
                         <img src="./icons/${iconName}.png" alt="${eventName}" 
                              style="object-fit: contain; transition: transform 0.2s ease;" 
                              class="magic-icon hover:scale-110" 
-                             onerror="this.src='./icons/zh.png'; this.alt='${eventName}';" />
+                             onerror="this.src='./icons/zh.png'; this.alt='${eventName}';">
                     </div>
                     <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
                         ${displayText}
                     </div>
                 `;
                 
-                // 添加点击事件
+                // 添加点击事件 - 点击时刷新详细信息
                 iconElement.addEventListener('click', () => {
-                    const dateStr = date.getDate();
-                    showNotification(`${eventName}: ${dateStr}号 ${timeSlot.start} ${location.area}-${location.name}`);
+                    // 点击时重新获取最新事件信息
+                    const latestEvent = getNearestEvent(eventType);
+                    if (latestEvent) {
+                        const { date: latestDate, timeSlot: latestTimeSlot, location: latestLocation } = latestEvent;
+                        const dateStr = latestDate.getDate();
+                        showNotification(`${eventName}: ${dateStr}号 ${latestTimeSlot.start}-${latestTimeSlot.end} ${latestLocation.area}-${latestLocation.name}`);
+                    }
                 });
                 
                 container.appendChild(iconElement);
@@ -8350,6 +8552,11 @@
 
         // 初始化红石黑石图标
         function initRedstoneBlackstoneIcons() {
+            // 如果已经初始化过，直接返回
+            if (window.redstoneBlackstoneIconsInitialized) {
+                return;
+            }
+            
             const container = document.getElementById('redstone-blackstone-container');
             container.innerHTML = ''; // 清空容器
             
@@ -8358,10 +8565,44 @@
             
             // 创建黑石图标
             createEventIcon('blackstone');
+            
+            // 设置初始化标志
+            window.redstoneBlackstoneIconsInitialized = true;
+            
+            // 启动定时器，每秒更新一次日期文本
+            setInterval(updateEventIconDates, 1000);
+        }
+
+        // 更新图标下方的日期文本
+        function updateEventIconDates() {
+            const icons = document.querySelectorAll('#redstone-blackstone-container .magic-icon-item');
+            icons.forEach((icon, index) => {
+                const eventType = index === 0 ? 'redstone' : 'blackstone';
+                const nearestEvent = getNearestEvent(eventType);
+                
+                if (nearestEvent) {
+                    const { dayOffset } = nearestEvent;
+                    let displayText;
+                    switch (dayOffset) {
+                        case 0: displayText = '今天'; break;
+                        case 1: displayText = '明天'; break;
+                        case 2: displayText = '后天'; break;
+                        default: displayText = `${dayOffset}天后`;
+                    }
+                    
+                    // 更新日期文本
+                    const dateElement = icon.querySelector('div:last-child');
+                    if (dateElement) {
+                        dateElement.textContent = displayText;
+                    }
+                }
+            });
         }
 
         // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', initRedstoneBlackstoneIcons);
+        document.addEventListener('DOMContentLoaded', () => {
+            initRedstoneBlackstoneIcons();
+        });
     </script>
 </body>
 </html>
