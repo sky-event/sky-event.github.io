@@ -7881,18 +7881,22 @@
                 hideTaskModal();
             });
 
-            // 初始化显示
-            updateCurrentTime();
-            updateTasks();
-            
-            // 添加季蜡位置图标功能
-            (function() {
-                // 季蜡位置图标功能 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
-                const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
-                
+            // 初始化魔法图标
+            function initMagicIcons() {
                 // 获取当前北京时间，并转换为太平洋时间用于计算
                 const currentDate = new Date();
+                const now = currentDate; // 声明当前时间变量，供所有地方使用
                 const pacificDate = TimeZoneUtils.CSTtoPDT(currentDate);
+                
+                // 获取魔法图标容器
+                const container = document.getElementById('magic-icons-container');
+                if (!container) return;
+                
+                // 清空容器
+                container.innerHTML = '';
+                
+                // 季蜡位置图标功能 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+                const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
                 
                 // 计算太平洋时间下的当天是一年中的第几天
                 const dayOfYear = Math.floor((pacificDate - new Date(pacificDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
@@ -7902,10 +7906,6 @@
                 const offset = 2;
                 const mapIndex = (dayOfYear + offset) % seasonWaxMaps.length;
                 const currentMap = seasonWaxMaps[mapIndex];
-                
-                // 获取魔法图标容器
-                const container = document.getElementById('magic-icons-container');
-                if (!container) return;
                 
                 // 创建季蜡元素
                 const seasonWaxElement = document.createElement('div');
@@ -8083,7 +8083,63 @@
                 });
                 
                 container.appendChild(largeWaxElement);
-            })();
+                
+                // 检查事件Id33是否在生效的有效期内 - 双倍心火功能
+                const event33 = tasks.find(task => task.id === 33);
+                let isEvent33Active = false;
+                
+                if (event33) {
+                    // 计算事件Id33的有效期
+                    const startTime = new Date(`${event33.startDate}T${event33.startTime}`);
+                    const durationMs = convertToMilliseconds(event33.recurrence.duration, event33.recurrence.durationUnit);
+                    const endTime = new Date(startTime.getTime() + durationMs);
+                    
+                    // 检查当前时间是否在事件有效期内
+                    isEvent33Active = now >= startTime && now < endTime;
+                }
+                
+                // 如果事件Id33生效，则显示双倍心火图标
+                if (isEvent33Active) {
+                    // 创建双倍心火元素
+                    const doubleHeartElement = document.createElement('div');
+                    doubleHeartElement.className = 'magic-icon-item cursor-pointer relative';
+                    doubleHeartElement.title = '双倍心火';
+                    doubleHeartElement.innerHTML = `
+                        <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
+                            <img src="./icons/sbxh.png" alt="双倍心火" 
+                                 style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
+                                 class="magic-icon hover:scale-110" 
+                                 onerror="this.src='./icons/zh.png'; this.alt='双倍心火';" />
+                        </div>
+                        <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
+                            双倍
+                        </div>
+                    `;
+                    
+                    // 添加点击事件，执行拉花喷射效果
+                    doubleHeartElement.addEventListener('click', () => {
+                        showNotification('双倍心火');
+                        // 执行拉花喷射效果
+                        spraySpots();
+                    });
+                    
+                    container.appendChild(doubleHeartElement);
+                }
+            }
+            
+            // 初始化显示
+            updateCurrentTime();
+            updateTasks();
+            
+            // 直接调用魔法图标初始化函数，此时tasks数组已经从硬编数据初始化
+            initMagicIcons();
+            
+            // 确保在updateTasks函数中也调用initMagicIcons，以便每次tasks数组更新时重新初始化魔法图标
+            const originalUpdateTasks = updateTasks;
+            updateTasks = function() {
+                originalUpdateTasks();
+                initMagicIcons();
+            };
             
             // 添加红石和黑石图标功能
             (function() {
@@ -8303,73 +8359,85 @@
                         if (events.length > 0) {
                             const event = events[0];
                             
-                            // 检查该事件是否有未过去的时间槽
+                            // 检查该事件是否有未过去的时间槽或正在进行的时间槽
                             const now = new Date();
-                            let hasFutureSlot = false;
+                            let hasFutureOrOngoingSlot = false;
+                            let currentOngoingSlot = null;
+                            let currentOngoingSlotCST = null;
                             
-                            // 遍历所有时间槽，检查是否有未过去的
+                            // 遍历所有时间槽，检查是否有未过去的或正在进行的
                             for (const timeSlot of event.timeSlots) {
                                 const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
+                                const [endHourPDT, endMinutePDT] = timeSlot.end.split(':').map(Number);
                                 
-                                // 创建太平洋时间的时间槽开始时间
-                                // 注意：event.date的日期部分已经是太平洋日期，我们只需要设置时间
-                                // 然后直接将太平洋时间加上16小时转换为北京时间
+                                // 创建太平洋时间的时间槽开始时间和结束时间
                                 const slotStartPDT = new Date(event.date);
                                 slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
                                 
-                                // 转换为北京时间
-                                // 北京时间 = 太平洋时间 + 16小时（冬令时）
-                                const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                const slotEndPDT = new Date(event.date);
+                                slotEndPDT.setHours(endHourPDT, endMinutePDT, 0, 0);
                                 
-                                // 如果时间槽开始时间在当前时间之后，说明这个事件还有未来的时间槽
+                                // 处理跨天情况
+                                if (slotEndPDT < slotStartPDT) {
+                                    slotEndPDT.setDate(slotEndPDT.getDate() + 1);
+                                }
+                                
+                                // 转换为北京时间
+                                const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                const slotEndCST = new Date(slotEndPDT.getTime() + 16 * 60 * 60 * 1000);
+                                
+                                // 检查当前时间是否在这个时间槽内
+                                if (now >= slotStartCST && now < slotEndCST) {
+                                    hasFutureOrOngoingSlot = true;
+                                    currentOngoingSlot = timeSlot;
+                                    currentOngoingSlotCST = slotStartCST;
+                                    break;
+                                }
+                                // 检查时间槽开始时间是否在当前时间之后
                                 if (slotStartCST > now) {
-                                    hasFutureSlot = true;
+                                    hasFutureOrOngoingSlot = true;
                                     break;
                                 }
                             }
                             
-                            // 如果有未过去的时间槽，或者今天是事件日期但时间槽还没开始，就返回这个事件
-                            // 否则继续检查下一个日期
-                            if (hasFutureSlot) {
+                            // 如果有未过去的时间槽或正在进行的时间槽，就返回这个事件
+                            if (hasFutureOrOngoingSlot) {
                                 // 计算事件日期相对于今天的描述
                                 const today = new Date();
                                 
-                                // 获取事件的太平洋日期（这是一个包含太平洋时间的Date对象）
+                                // 获取事件的太平洋日期
                                 const eventPDT = new Date(event.date);
                                 
-                                // 遍历时间槽，找到第一个未过去的时间槽
-                                let firstFutureSlot = null;
-                                let firstFutureSlotCST = null;
+                                // 遍历时间槽，找到当前正在进行的或第一个未过去的时间槽
+                                let targetSlot = currentOngoingSlot;
+                                let targetSlotCST = currentOngoingSlotCST;
                                 
-                                for (const timeSlot of event.timeSlots) {
-                                    const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
-                                    
-                                    // 创建太平洋时间的时间槽开始时间
-                                    // 注意：eventPDT的日期部分已经是太平洋日期，我们只需要设置时间
-                                    // 然后直接将太平洋时间加上16小时转换为北京时间
-                                    const slotStartPDT = new Date(eventPDT);
-                                    slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
-                                    
-                                    // 转换为北京时间
-                                    // 北京时间 = 太平洋时间 + 16小时（冬令时）
-                                    const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
-                                    
-                                    // 如果这个时间槽还没过去，就使用它
-                                    if (slotStartCST > today) {
-                                        firstFutureSlot = timeSlot;
-                                        firstFutureSlotCST = slotStartCST;
-                                        break;
+                                // 如果没有正在进行的时间槽，找到第一个未过去的时间槽
+                                if (!targetSlot) {
+                                    for (const timeSlot of event.timeSlots) {
+                                        const [startHourPDT, startMinutePDT] = timeSlot.start.split(':').map(Number);
+                                        
+                                        const slotStartPDT = new Date(eventPDT);
+                                        slotStartPDT.setHours(startHourPDT, startMinutePDT, 0, 0);
+                                        
+                                        const slotStartCST = new Date(slotStartPDT.getTime() + 16 * 60 * 60 * 1000);
+                                        
+                                        if (slotStartCST > today) {
+                                            targetSlot = timeSlot;
+                                            targetSlotCST = slotStartCST;
+                                            break;
+                                        }
                                     }
                                 }
                                 
                                 let dayText;
                                 
-                                if (firstFutureSlotCST) {
+                                if (targetSlotCST) {
                                     // 重置时间，只比较日期部分
                                     const todayOnly = new Date(today);
                                     todayOnly.setHours(0, 0, 0, 0);
                                     
-                                    const eventDateOnly = new Date(firstFutureSlotCST);
+                                    const eventDateOnly = new Date(targetSlotCST);
                                     eventDateOnly.setHours(0, 0, 0, 0);
                                     
                                     // 计算相差天数
@@ -8378,8 +8446,8 @@
                                     
                                     // 调试信息
                                     console.log(`事件太平洋日期: ${eventPDT.toLocaleDateString('zh-CN')}`);
-                                    console.log(`第一个未来时间槽: ${firstFutureSlot.start}`);
-                                    console.log(`事件北京时间: ${firstFutureSlotCST.toLocaleDateString('zh-CN')}`);
+                                    console.log(`目标时间槽: ${targetSlot.start}-${targetSlot.end}`);
+                                    console.log(`事件北京时间: ${targetSlotCST.toLocaleDateString('zh-CN')}`);
                                     console.log(`今天日期: ${todayOnly.toLocaleDateString('zh-CN')}`);
                                     console.log(`天数差: ${dayDiff}`);
                                     
@@ -8393,7 +8461,7 @@
                                         dayText = `${dayDiff}天后`;
                                     }
                                 } else {
-                                    // 如果没有未来的时间槽，使用默认显示
+                                    // 如果没有目标时间槽，使用默认显示
                                     dayText = '暂无';
                                 }
                                 

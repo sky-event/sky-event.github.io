@@ -232,7 +232,7 @@
                 color: #60a5fa !important;
             }
             .lock-indicator {
-                @apply absolute top-4 right-4 text-dark-textSecondary hover:text-primary transition-colors cursor-pointer;
+                @apply absolute top-4 right-4 text-dark-textSecondary hover:text-primary transition-colors cursor-pointer w-10 h-10 flex items-center justify-center;
             }
             
             /* 锁定指示器图标（包括HHS和服务器切换）始终显示为24px */
@@ -7980,7 +7980,7 @@
                     
                     // 添加点击事件，显示双倍魔法通知并执行拉花喷射
                     iconElement.addEventListener('click', () => {
-                        showNotification('双倍666魔法');
+                        showNotification('双倍 魔法');
                         // 执行拉花喷射效果
                         spraySpots();
                     });
@@ -8229,19 +8229,47 @@
                         // 如果有图片，重新添加点击事件以支持图片查看
                         if (images.length > 0) {
                             // 重新获取大蜡图标元素
-                            const containerLargeWaxElement = container.querySelector('.magic-icon-item:last-child');
+                            // 使用更可靠的方式获取大蜡图标 - 查找包含大蜡图标的元素
+                            const containerLargeWaxElement = Array.from(container.children).find(child => 
+                                child.querySelector('img[src*="dl.png"]') !== null
+                            );
                             if (containerLargeWaxElement) {
                                 // 移除现有点击事件
                                 containerLargeWaxElement.replaceWith(containerLargeWaxElement.cloneNode(true));
-                                const newLargeWaxElement = container.querySelector('.magic-icon-item:last-child');
+                                // 再次使用可靠的方式获取新的大蜡图标元素
+                                const newLargeWaxElement = Array.from(container.children).find(child => 
+                                    child.querySelector('img[src*="dl.png"]') !== null
+                                );
                                 
-                                // 添加新的点击事件，支持图片查看
-                                newLargeWaxElement.addEventListener('click', () => {
-                                    showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
-                                    // 显示图片卡片，传入文件夹名称（l1到l7，对应周一到周日）
-                                    const folderName = `l${adjustedDayOfWeek + 1}`;
-                                    showLargeWaxImages(currentLargeWax.images, currentLargeWax.fullName, folderName);
-                                });
+                                // 重新检查当前Id24事件状态，确保在添加新事件前Id24仍然无效
+                                const latestEvent24 = tasks.find(task => task.id === 24);
+                                let latestIsEvent24Active = false;
+                                
+                                if (latestEvent24) {
+                                    const latestStartTime = new Date(`${latestEvent24.startDate}T${latestEvent24.startTime}`);
+                                    const latestDurationMs = convertToMilliseconds(latestEvent24.recurrence.duration, latestEvent24.recurrence.durationUnit);
+                                    const latestEndTime = new Date(latestStartTime.getTime() + latestDurationMs);
+                                    const latestNow = new Date();
+                                    latestIsEvent24Active = latestNow >= latestStartTime && latestNow < latestEndTime;
+                                }
+                                
+                                // 只有当Id24仍无效时才添加图片查看事件
+                                if (!latestIsEvent24Active) {
+                                    // 添加新的点击事件，支持图片查看
+                                    newLargeWaxElement.addEventListener('click', () => {
+                                        showNotification(`今日大蜡位置: ${currentLargeWax.fullName}`);
+                                        // 显示图片卡片，传入文件夹名称（l1到l7，对应周一到周日）
+                                        const folderName = `l${adjustedDayOfWeek + 1}`;
+                                        showLargeWaxImages(currentLargeWax.images, currentLargeWax.fullName, folderName);
+                                    });
+                                } else {
+                                    // 如果Id24已变为有效，添加拉花效果事件
+                                    newLargeWaxElement.addEventListener('click', () => {
+                                        showNotification(`快跑啊! 全图大蜡来了!`);
+                                        // 执行拉花喷射效果
+                                        spraySpots();
+                                    });
+                                }
                             }
                         }
                     }).catch(error => {
@@ -8250,6 +8278,51 @@
                 
                 // 直接添加到容器
                 container.appendChild(largeWaxElement);
+                
+                // 保存大蜡图标的引用，用于后续异步检测图片时正确获取元素
+                let largeWaxRef = largeWaxElement;
+                
+                // 检查事件Id33是否在生效的有效期内 - 双倍心火功能
+                const event33 = tasks.find(task => task.id === 33);
+                let isEvent33Active = false;
+                
+                if (event33) {
+                    // 计算事件Id33的有效期
+                    const startTime = new Date(`${event33.startDate}T${event33.startTime}`);
+                    const durationMs = convertToMilliseconds(event33.recurrence.duration, event33.recurrence.durationUnit);
+                    const endTime = new Date(startTime.getTime() + durationMs);
+                    
+                    // 检查当前时间是否在事件有效期内
+                    isEvent33Active = now >= startTime && now < endTime;
+                }
+                
+                // 如果事件Id33生效，则显示双倍心火图标
+                if (isEvent33Active) {
+                    // 创建双倍心火元素
+                    const doubleHeartElement = document.createElement('div');
+                    doubleHeartElement.className = 'magic-icon-item cursor-pointer relative';
+                    doubleHeartElement.title = '双倍心火';
+                    doubleHeartElement.innerHTML = `
+                        <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: transparent; border: none; border-radius: 8px; overflow: visible; margin-top: 8px;">
+                            <img src="./icons/sbxh.png" alt="双倍心火" 
+                                 style="width: 32px; height: 32px; object-fit: contain; transition: transform 0.2s ease;" 
+                                 class="magic-icon hover:scale-110" 
+                                 onerror="this.src='./icons/zh.png'; this.alt='双倍心火';" />
+                        </div>
+                        <div style="text-align: center; font-size: 10px; color: var(--text-color); margin-top: 2px; font-weight: 500; width: 100%;">
+                            双倍
+                        </div>
+                    `;
+                    
+                    // 添加点击事件，执行拉花喷射效果
+                    doubleHeartElement.addEventListener('click', () => {
+                        showNotification('双倍 心火');
+                        // 执行拉花喷射效果
+                        spraySpots();
+                    });
+                    
+                    container.appendChild(doubleHeartElement);
+                }
             } catch (error) {
                 console.error('魔法图标初始化失败:', error);
                 // 如果初始化失败，恢复容器原始内容
@@ -8296,7 +8369,7 @@
         setInterval(updateCurrentTime, 1000);
         
         // 每秒更新一次事件状态，保持事件状态的及时更新
-        setInterval(updateTasks, 1000);
+        setInterval(updateTasks, 2000);
         
         // 跨天自动刷新功能已关闭 - 不再基于太平洋时间进行跨天检查
         
