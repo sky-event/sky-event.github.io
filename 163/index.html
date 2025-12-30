@@ -5187,10 +5187,22 @@
                 if (status.status !== "completed" && 
                     (status.status === "ongoing" || status.status === "upcoming")) {
                     // 合并任务和状态信息
-                    visibleTasks.push({
+                    const taskWithStatus = {
                         ...task,
                         ...status
-                    });
+                    };
+                    
+                    // 确保奶奶饭事件只显示一次
+                    if (task.name === "奶奶饭") {
+                        // 检查是否已添加奶奶饭事件
+                        const hasGrandmaMeal = visibleTasks.some(t => t.name === "奶奶饭");
+                        if (!hasGrandmaMeal) {
+                            visibleTasks.push(taskWithStatus);
+                        }
+                    } else {
+                        // 其他事件正常添加
+                        visibleTasks.push(taskWithStatus);
+                    }
                 }
             }
             
@@ -5317,13 +5329,26 @@
                             }
                         } else if (task.recurrence.startTimes && task.recurrence.startTimes.length > 0) {
                             // 时间点模式：显示所有时间点
-                            const cstTimes = task.recurrence.startTimes.map(timeStr => {
-                                const [startHour, startMinute] = timeStr.split(':').map(Number);
-                                const pdtDate = new Date();
-                                pdtDate.setHours(startHour, startMinute, 0, 0);
-                                return TimeZoneUtils.formatCSTTime(TimeZoneUtils.PDTtoCST(pdtDate));
-                            });
-                            recurrenceText = `每天 ${cstTimes.join(', ')}`;
+                            let cstTimes;
+                            if (task.name === "奶奶饭") {
+                                // 奶奶饭特殊处理：只显示小时，不带分钟
+                                cstTimes = task.recurrence.startTimes.map(timeStr => {
+                                    const [startHour] = timeStr.split(':').map(Number);
+                                    return startHour;
+                                });
+                            } else {
+                                cstTimes = task.recurrence.startTimes.map(timeStr => {
+                                    const [startHour, startMinute] = timeStr.split(':').map(Number);
+                                    const pdtDate = new Date();
+                                    pdtDate.setHours(startHour, startMinute, 0, 0);
+                                    return TimeZoneUtils.formatCSTTime(TimeZoneUtils.PDTtoCST(pdtDate));
+                                });
+                            }
+                            if (task.name === "奶奶饭") {
+                                recurrenceText = `每天 ${cstTimes.join(', ')}点`;
+                            } else {
+                                recurrenceText = `每天 ${cstTimes.join(', ')}`;
+                            }
                         } else {
                             recurrenceText = "每天";
                         }
