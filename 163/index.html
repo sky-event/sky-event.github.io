@@ -5615,8 +5615,8 @@
             const githubRepo = 'sky-event.github.io';
             const githubBranch = 'main';
             const basePath = '163/images/event-bg';
-            // 使用毫秒级时间戳，确保每次刷新都能获取最新图片
-            const timestamp = Date.now();
+            // 移除动态timestamp，让浏览器能够缓存图片
+            const timestamp = 'v1'; // 使用固定版本号，需要更新图片时手动修改
             
             // 4. 定义图片查找优先级：从最具体到最通用
             // 新规则：W-宽屏(电脑)，H-窄屏(手机)，L-浅色，D-深色
@@ -5685,21 +5685,27 @@
                 // 开始查找可用图片
                 findAvailableImage(0);
                 
-                // 使用setTimeout确保异步查找完成后设置背景图
-                setTimeout(() => {
-                    if (foundImageUrl) {
+                // 优化：使用回调函数替代setTimeout，确保可靠的图片加载
+                (function checkImageFound() {
+                    if (found) {
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
-                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = function() {
-                            // 图片完全加载后再设置背景图
-                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
-                        };
-                        img.src = foundImageUrl;
+                        // 只有当元素还没有背景图时才设置，避免重复设置导致闪烁
+                        if (!taskEl.style.backgroundImage) {
+                            // 预加载图片，确保完全加载后再设置背景图，避免闪烁
+                            const img = new Image();
+                            img.crossOrigin = 'anonymous';
+                            img.onload = function() {
+                                // 图片完全加载后再设置背景图
+                                taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                            };
+                            img.src = foundImageUrl;
+                        }
+                    } else {
+                        // 如果还没找到，延迟50ms后再次检查
+                        setTimeout(checkImageFound, 50);
                     }
-                }, 50);
+                })();
             }
             // 添加平滑过渡效果，避免硬切
             taskEl.style.transition = 'background-image 0.5s ease-in-out';
