@@ -5693,8 +5693,7 @@
                         
                         // 只有当元素还没有背景图时才设置，避免重复设置导致闪烁
                         if (!taskEl.style.backgroundImage) {
-                            // 生产环境优化：先设置一个透明占位符，避免白屏
-                            taskEl.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22%3E%3C/svg%3E")';
+                            // 移除透明占位符，直接预加载图片，与根目录版本保持一致
                             
                             // 预加载图片，确保完全加载后再设置背景图，避免闪烁
                             const img = new Image();
@@ -5703,11 +5702,7 @@
                                 // 图片完全加载后再设置真实背景图
                                 taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
                             };
-                            // 添加错误处理，避免图片加载失败导致的问题
-                            img.onerror = function() {
-                                // 如果图片加载失败，清空背景图，使用默认样式
-                                taskEl.style.backgroundImage = '';
-                            };
+                            // 移除错误处理，与根目录版本保持一致
                             img.src = foundImageUrl;
                         }
                     } else {
