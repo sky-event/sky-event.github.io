@@ -5282,26 +5282,7 @@
         }
 
         // 全局图片缓存，避免重复查找
-        // 从localStorage中恢复缓存，实现跨刷新持久化
-        let imageCache = {};
-        try {
-            const cached = localStorage.getItem('sky_event_image_cache');
-            if (cached) {
-                imageCache = JSON.parse(cached);
-            }
-        } catch (e) {
-            console.error('Failed to load image cache from localStorage:', e);
-            imageCache = {};
-        }
-        
-        // 保存缓存到localStorage的函数
-        function saveImageCache() {
-            try {
-                localStorage.setItem('sky_event_image_cache', JSON.stringify(imageCache));
-            } catch (e) {
-                console.error('Failed to save image cache to localStorage:', e);
-            }
-        }
+        const imageCache = {};
 
         // 创建事件元素
         function createTaskElement(task) {
@@ -5657,13 +5638,7 @@
             // 检查缓存中是否已经有结果
             if (imageCache[cacheKey]) {
                 // 使用缓存的图片URL，避免重复检测
-                // 直接设置背景图，不触发过渡效果，避免闪烁
-                taskEl.style.transition = 'none';
                 taskEl.style.backgroundImage = `url('${imageCache[cacheKey]}')`;
-                // 在下一帧恢复过渡效果，以便后续真正需要时使用
-                setTimeout(() => {
-                    taskEl.style.transition = 'background-image 0.5s ease-in-out';
-                }, 0);
             } else {
                 // 缓存中没有结果，开始查找
                 let foundImageUrl = '';
@@ -5696,16 +5671,12 @@
                     testImage.onload = () => {
                         // 图片存在，缓存URL并返回
                         imageCache[filename] = imageUrl;
-                        // 保存缓存到localStorage，实现跨刷新持久化
-                        saveImageCache();
                         foundImageUrl = imageUrl;
                         found = true;
                     };
                     testImage.onerror = () => {
                         // 图片不存在，标记到缓存并尝试下一个
                         imageCache[filename] = false;
-                        // 保存缓存到localStorage，实现跨刷新持久化
-                        saveImageCache();
                         findAvailableImage(index + 1);
                     };
                     testImage.src = imageUrl;
@@ -5719,16 +5690,23 @@
                     if (found) {
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
-                        // 保存缓存到localStorage，实现跨刷新持久化
-                        saveImageCache();
+                        
                         // 只有当元素还没有背景图时才设置，避免重复设置导致闪烁
                         if (!taskEl.style.backgroundImage) {
+                            // 生产环境优化：先设置一个透明占位符，避免白屏
+                            taskEl.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22%3E%3C/svg%3E")';
+                            
                             // 预加载图片，确保完全加载后再设置背景图，避免闪烁
                             const img = new Image();
                             img.crossOrigin = 'anonymous';
                             img.onload = function() {
-                                // 图片完全加载后再设置背景图
+                                // 图片完全加载后再设置真实背景图
                                 taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                            };
+                            // 添加错误处理，避免图片加载失败导致的问题
+                            img.onerror = function() {
+                                // 如果图片加载失败，清空背景图，使用默认样式
+                                taskEl.style.backgroundImage = '';
                             };
                             img.src = foundImageUrl;
                         }
@@ -6219,8 +6197,31 @@
 
         // 更新事件显示
         function updateTasks() {
-            currentVisibleTasks = getVisibleTasks();
-            currentAllTasks = getAllTasksWithStatus();
+            // 生产环境优化：减少不必要的计算，只在任务数量或状态变化时更新
+            const newVisibleTasks = getVisibleTasks();
+            const newAllTasks = getAllTasksWithStatus();
+            
+            // 简单比较任务数量，避免不必要的DOM操作
+            const hasTaskCountChanged = newVisibleTasks.length !== currentVisibleTasks.length || 
+                                       newAllTasks.length !== currentAllTasks.length;
+            
+            // 如果任务数量没有变化，并且第一个任务的ID和状态都没有变化，跳过更新
+            let skipUpdate = false;
+            if (!hasTaskCountChanged && newVisibleTasks.length > 0 && currentVisibleTasks.length > 0) {
+                const firstNewTask = newVisibleTasks[0];
+                const firstCurrentTask = currentVisibleTasks[0];
+                skipUpdate = firstNewTask.id === firstCurrentTask.id && 
+                            firstNewTask.status === firstCurrentTask.status &&
+                            firstNewTask.countdownText === firstCurrentTask.countdownText;
+            }
+            
+            if (skipUpdate) {
+                return; // 跳过不必要的更新，减少DOM操作
+            }
+            
+            // 更新全局任务状态
+            currentVisibleTasks = newVisibleTasks;
+            currentAllTasks = newAllTasks;
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
             
             // 保存当前滚动位置
@@ -6287,11 +6288,8 @@
                         // 检查任务元素是否被重新用于不同的任务
                         const currentTaskId = taskEl.dataset.taskId;
                         if (currentTaskId !== task.id) {
-                            // 如果任务ID不同，更新元素的任务ID并重新设置背景图
-                            taskEl.dataset.taskId = task.id;
-                            // 重置背景图，让createTaskElement重新生成
-                            taskEl.style.backgroundImage = '';
-                            // 重新创建任务元素，确保所有内容都正确更新
+                            // 如果任务ID不同，直接创建新元素并替换，避免中间状态闪烁
+                            // 不要先清除背景图，直接替换整个元素
                             const newTaskEl = createTaskElement(task);
                             taskCarousel.replaceChild(newTaskEl, taskEl);
                         } else {
