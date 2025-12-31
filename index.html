@@ -8442,7 +8442,8 @@
                                     
                                     // 计算相差天数
                                     const timeDiff = eventDateOnly - todayOnly;
-                                    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                                    // 使用Math.max确保天数差不会为负数
+                                    const dayDiff = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
                                     
                                     // 调试信息
                                     console.log(`事件太平洋日期: ${eventPDT.toLocaleDateString('zh-CN')}`);
