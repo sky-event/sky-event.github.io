@@ -274,7 +274,7 @@
         "startTime": "00:00",
         "displayThreshold": 1,
         "displayThresholdUnit": "day",
-        "priority": "medium",
+        "priority": "low",
         "recurrence": {
             "type": "none",
             "duration": 10,
