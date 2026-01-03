@@ -8077,10 +8077,10 @@
                 }
                 
                 // 只有当Id21事件有效时才显示季蜡位置图标
+                const currentDate = new Date();
                 if (isId21Active) {
                     // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
                 const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
-                const currentDate = new Date();
                 
                 // 计算2025年11月27日应该显示霞谷（索引2）
                 // 计算当天是一年中的第几天
