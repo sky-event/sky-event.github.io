@@ -5685,14 +5685,12 @@
                 // 开始查找可用图片
                 findAvailableImage(0);
                 
-                // 优化：使用回调函数替代setTimeout，确保可靠的图片加载
-                (function checkImageFound() {
-                    if (found) {
+                // 使用setTimeout确保异步查找完成后设置背景图，与根目录版本保持一致
+                setTimeout(() => {
+                    if (foundImageUrl) {
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
-                        
                         // 预加载图片，确保完全加载后再设置背景图，避免闪烁
-                        // 移除背景图检查，与根目录版本保持一致
                         const img = new Image();
                         img.crossOrigin = 'anonymous';
                         img.onload = function() {
@@ -5700,11 +5698,8 @@
                             taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
                         };
                         img.src = foundImageUrl;
-                    } else {
-                        // 如果还没找到，延迟50ms后再次检查
-                        setTimeout(checkImageFound, 50);
                     }
-                })();
+                }, 50);
             }
             // 添加平滑过渡效果，避免硬切
             taskEl.style.transition = 'background-image 0.5s ease-in-out';
