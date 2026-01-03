@@ -7473,9 +7473,10 @@
                     await saveData(tasks);
                 }
                 
-                // 数据加载完成后更新任务列表和特殊通知
+                // 数据加载完成后更新任务列表、特殊通知和魔法图标
             updateTasks();
             updateSpecialNotification();
+            initMagicIcons(); // 重新初始化魔法图标，使用最新的云端数据
             })();
             
             // 页面初始化时预检测图片并预加载，减少用户点击按钮时的等待时间
@@ -7895,7 +7896,23 @@
                 // 清空容器
                 container.innerHTML = '';
                 
-                // 季蜡位置图标功能 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+                // Id21事件（迁徙季）检测 - 只有在事件有效时间内才显示季蜡位置
+                const id21Event = tasks.find(task => task.id === 21);
+                let isId21Active = false;
+                
+                if (id21Event) {
+                    // 计算事件Id21的有效期
+                    const startTime = new Date(`${id21Event.startDate}T${id21Event.startTime}`);
+                    const durationMs = (id21Event.recurrence.duration * 24 * 60 * 60 * 1000); // 转换为毫秒
+                    const endTime = new Date(startTime.getTime() + durationMs);
+                    
+                    // 检测当前时间是否在Id21事件有效范围内
+                    isId21Active = pacificDate >= startTime && pacificDate < endTime;
+                }
+                
+                // 只有当Id21事件有效时才显示季蜡位置图标
+                if (isId21Active) {
+                    // 季蜡位置图标功能 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
                 const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
                 
                 // 计算太平洋时间下的当天是一年中的第几天
@@ -7929,6 +7946,7 @@
                 });
                 
                 container.appendChild(seasonWaxElement);
+                }
                 
                 // 添加大蜡位置图标功能 - 每天切换不同地图组合
                 // 根据用户要求：太平洋时间12月8日的大蜡位置在云野，显示规律是云野, 雨林, 霞谷, 暮土, 禁阁，按顺序每天显示下个位置

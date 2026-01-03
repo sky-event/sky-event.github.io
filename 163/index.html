@@ -970,7 +970,7 @@
 
     <!-- 加载指示器 -->
     <div id="loading-indicator" class="fixed inset-0 flex items-center justify-center bg-dark-bg z-50 transition-opacity duration-500">
-<div class="loading-indicator text-2xl font-bold animate-pulse">Sky 事件 时间</div>
+<div class="loading-indicator text-2xl font-bold animate-pulse">光·遇 事件 时间</div>
     </div>
     
     <!-- 主内容包装容器 -->
@@ -5691,20 +5691,15 @@
                         // 缓存最终结果，避免下次重复查找
                         imageCache[cacheKey] = foundImageUrl;
                         
-                        // 只有当元素还没有背景图时才设置，避免重复设置导致闪烁
-                        if (!taskEl.style.backgroundImage) {
-                            // 移除透明占位符，直接预加载图片，与根目录版本保持一致
-                            
-                            // 预加载图片，确保完全加载后再设置背景图，避免闪烁
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-                            img.onload = function() {
-                                // 图片完全加载后再设置真实背景图
-                                taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
-                            };
-                            // 移除错误处理，与根目录版本保持一致
-                            img.src = foundImageUrl;
-                        }
+                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
+                        // 移除背景图检查，与根目录版本保持一致
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = function() {
+                            // 图片完全加载后再设置背景图
+                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                        };
+                        img.src = foundImageUrl;
                     } else {
                         // 如果还没找到，延迟50ms后再次检查
                         setTimeout(checkImageFound, 50);
@@ -7389,7 +7384,7 @@
                 
                 const now = new Date();
                 const dateStr = now.toISOString().split('T')[0];
-                a.download = `Sky 事件 时间_${dateStr}.html`;
+                a.download = `光·遇 事件 时间_${dateStr}.html`;
                 
                 a.href = url;
                 document.body.appendChild(a);
@@ -8067,7 +8062,23 @@
                     });
                 }
                 
-                // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+                // 检测Id21事件（迁徙季）是否在有效时间内
+                const id21Event = tasks.find(task => task.id === 21);
+                let isId21Active = false;
+                
+                if (id21Event) {
+                    // 计算事件Id21的有效期
+                    const startTime = new Date(`${id21Event.startDate}T${id21Event.startTime}`);
+                    const durationMs = convertToMilliseconds(id21Event.recurrence.duration, id21Event.recurrence.durationUnit);
+                    const endTime = new Date(startTime.getTime() + durationMs);
+                    
+                    // 检查当前时间是否在事件有效期内
+                    isId21Active = now >= startTime && now < endTime;
+                }
+                
+                // 只有当Id21事件有效时才显示季蜡位置图标
+                if (isId21Active) {
+                    // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
                 const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
                 const currentDate = new Date();
                 
@@ -8104,6 +8115,7 @@
                 
                 // 直接添加到容器
                 container.appendChild(seasonWaxElement);
+                }
                 
                 // 添加大蜡图标 - 每天切换不同地图组合
                 // 正确策略：周一到周日的大蜡位置
@@ -8645,7 +8657,7 @@
                 
                 // 确定图标和名称
                 const iconName = eventType === 'redstone' ? 'hong' : 'hei';
-                const eventName = eventType === 'redstone' ? '红石' : '黑石';
+                const eventName = eventType === 'redstone' ? '🔴红石' : '黑石';
                 
                 // 创建图标元素
                 const iconElement = document.createElement('div');
