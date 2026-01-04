@@ -5256,7 +5256,20 @@
         }
 
         // 全局图片缓存，避免重复查找
+        // 增强型图片缓存，包含版本控制和验证机制
         const imageCache = {};
+        // 缓存验证标志，用于跟踪是否需要验证图片更新
+        let cacheValidationNeeded = false;
+        
+        // 监听主题变化，触发缓存验证
+        document.documentElement.addEventListener('data-theme-changed', () => {
+            cacheValidationNeeded = true;
+        });
+        
+        // 监听窗口大小变化（设备类型变化），触发缓存验证
+        window.addEventListener('resize', () => {
+            cacheValidationNeeded = true;
+        });
 
         // 创建事件元素
         function createTaskElement(task) {
@@ -5594,11 +5607,17 @@
             // 5. 生成唯一的缓存键，包含事件ID、设备类型、主题类型
             const cacheKey = `${eventId}-${deviceType}-${themeType}`;
             
-            // 检查缓存中是否已经有结果
-            if (imageCache[cacheKey]) {
-                // 使用缓存的图片URL，避免重复检测
-                taskEl.style.backgroundImage = `url('${imageCache[cacheKey]}')`;
-            } else {
+            // 智能缓存策略：只有在特定条件下才重新验证图片
+            let shouldValidateCache = false;
+            
+            // 检查是否需要验证缓存：
+            // 1. 缓存验证标志被触发（主题变化、设备类型变化）
+            // 2. 缓存中没有结果
+            if (cacheValidationNeeded || !imageCache[cacheKey]) {
+                shouldValidateCache = true;
+            }
+            
+            if (shouldValidateCache) {
                 // 缓存中没有结果，开始查找
                 let foundImageUrl = '';
                 let found = false;
@@ -5618,8 +5637,8 @@
                         return;
                     }
                     
-                    // 如果缓存中已有该图片的URL，直接使用
-                    if (imageCache[filename]) {
+                    // 如果不需要验证缓存且已有该图片的URL，直接使用
+                    if (imageCache[filename] && !cacheValidationNeeded) {
                         foundImageUrl = imageCache[filename];
                         found = true;
                         return;
@@ -5644,21 +5663,19 @@
                 // 开始查找可用图片
                 findAvailableImage(0);
                 
-                // 使用setTimeout确保异步查找完成后设置背景图
-                setTimeout(() => {
-                    if (foundImageUrl) {
-                        // 缓存最终结果，避免下次重复查找
-                        imageCache[cacheKey] = foundImageUrl;
-                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = function() {
-                            // 图片完全加载后再设置背景图
-                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
-                        };
-                        img.src = foundImageUrl;
-                    }
-                }, 50);
+                // 图片查找完成后直接设置背景图，避免双重异步导致的闪烁
+                if (foundImageUrl) {
+                    // 缓存最终结果，避免下次重复查找
+                    imageCache[cacheKey] = foundImageUrl;
+                    // 直接设置背景图，利用浏览器的缓存机制
+                    taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                }
+                
+                // 重置验证标志，避免重复验证
+                cacheValidationNeeded = false;
+            } else {
+                // 使用缓存的图片URL，避免重复检测
+                taskEl.style.backgroundImage = `url('${imageCache[cacheKey]}')`;
             }
             // 添加平滑过渡效果，避免硬切
             taskEl.style.transition = 'background-image 0.5s ease-in-out';
