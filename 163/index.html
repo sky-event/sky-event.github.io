@@ -5282,7 +5282,20 @@
         }
 
         // 全局图片缓存，避免重复查找
+        // 增强型图片缓存，包含版本控制和验证机制
         const imageCache = {};
+        // 缓存验证标志，用于跟踪是否需要验证图片更新
+        let cacheValidationNeeded = false;
+        
+        // 监听主题变化，触发缓存验证
+        document.documentElement.addEventListener('data-theme-changed', () => {
+            cacheValidationNeeded = true;
+        });
+        
+        // 监听窗口大小变化（设备类型变化），触发缓存验证
+        window.addEventListener('resize', () => {
+            cacheValidationNeeded = true;
+        });
 
         // 创建事件元素
         function createTaskElement(task) {
@@ -5615,8 +5628,8 @@
             const githubRepo = 'sky-event.github.io';
             const githubBranch = 'main';
             const basePath = '163/images/event-bg';
-            // 移除动态timestamp，让浏览器能够缓存图片
-            const timestamp = 'v1'; // 使用固定版本号，需要更新图片时手动修改
+            // 使用毫秒级时间戳，确保每次刷新都能获取最新图片
+            const timestamp = Date.now();
             
             // 4. 定义图片查找优先级：从最具体到最通用
             // 新规则：W-宽屏(电脑)，H-窄屏(手机)，L-浅色，D-深色
@@ -5635,11 +5648,17 @@
             // 5. 生成唯一的缓存键，包含事件ID、设备类型、主题类型
             const cacheKey = `${eventId}-${deviceType}-${themeType}`;
             
-            // 检查缓存中是否已经有结果
-            if (imageCache[cacheKey]) {
-                // 使用缓存的图片URL，避免重复检测
-                taskEl.style.backgroundImage = `url('${imageCache[cacheKey]}')`;
-            } else {
+            // 智能缓存策略：只有在特定条件下才重新验证图片
+            let shouldValidateCache = false;
+            
+            // 检查是否需要验证缓存：
+            // 1. 缓存验证标志被触发（主题变化、设备类型变化）
+            // 2. 缓存中没有结果
+            if (cacheValidationNeeded || !imageCache[cacheKey]) {
+                shouldValidateCache = true;
+            }
+            
+            if (shouldValidateCache) {
                 // 缓存中没有结果，开始查找
                 let foundImageUrl = '';
                 let found = false;
@@ -5659,8 +5678,8 @@
                         return;
                     }
                     
-                    // 如果缓存中已有该图片的URL，直接使用
-                    if (imageCache[filename]) {
+                    // 如果不需要验证缓存且已有该图片的URL，直接使用
+                    if (imageCache[filename] && !cacheValidationNeeded) {
                         foundImageUrl = imageCache[filename];
                         found = true;
                         return;
@@ -5685,26 +5704,19 @@
                 // 开始查找可用图片
                 findAvailableImage(0);
                 
-                // 优化：使用回调函数替代setTimeout，确保可靠的图片加载
-                (function checkImageFound() {
-                    if (found) {
-                        // 缓存最终结果，避免下次重复查找
-                        imageCache[cacheKey] = foundImageUrl;
-                        
-                        // 预加载图片，确保完全加载后再设置背景图，避免闪烁
-                        // 移除背景图检查，与根目录版本保持一致
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = function() {
-                            // 图片完全加载后再设置背景图
-                            taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
-                        };
-                        img.src = foundImageUrl;
-                    } else {
-                        // 如果还没找到，延迟50ms后再次检查
-                        setTimeout(checkImageFound, 50);
-                    }
-                })();
+                // 图片查找完成后直接设置背景图，避免双重异步导致的闪烁
+                if (foundImageUrl) {
+                    // 缓存最终结果，避免下次重复查找
+                    imageCache[cacheKey] = foundImageUrl;
+                    // 直接设置背景图，利用浏览器的缓存机制
+                    taskEl.style.backgroundImage = `url('${foundImageUrl}')`;
+                }
+                
+                // 重置验证标志，避免重复验证
+                cacheValidationNeeded = false;
+            } else {
+                // 使用缓存的图片URL，避免重复检测
+                taskEl.style.backgroundImage = `url('${imageCache[cacheKey]}')`;
             }
             // 添加平滑过渡效果，避免硬切
             taskEl.style.transition = 'background-image 0.5s ease-in-out';
@@ -6187,31 +6199,8 @@
 
         // 更新事件显示
         function updateTasks() {
-            // 生产环境优化：减少不必要的计算，只在任务数量或状态变化时更新
-            const newVisibleTasks = getVisibleTasks();
-            const newAllTasks = getAllTasksWithStatus();
-            
-            // 简单比较任务数量，避免不必要的DOM操作
-            const hasTaskCountChanged = newVisibleTasks.length !== currentVisibleTasks.length || 
-                                       newAllTasks.length !== currentAllTasks.length;
-            
-            // 如果任务数量没有变化，并且第一个任务的ID和状态都没有变化，跳过更新
-            let skipUpdate = false;
-            if (!hasTaskCountChanged && newVisibleTasks.length > 0 && currentVisibleTasks.length > 0) {
-                const firstNewTask = newVisibleTasks[0];
-                const firstCurrentTask = currentVisibleTasks[0];
-                skipUpdate = firstNewTask.id === firstCurrentTask.id && 
-                            firstNewTask.status === firstCurrentTask.status &&
-                            firstNewTask.countdownText === firstCurrentTask.countdownText;
-            }
-            
-            if (skipUpdate) {
-                return; // 跳过不必要的更新，减少DOM操作
-            }
-            
-            // 更新全局任务状态
-            currentVisibleTasks = newVisibleTasks;
-            currentAllTasks = newAllTasks;
+            currentVisibleTasks = getVisibleTasks();
+            currentAllTasks = getAllTasksWithStatus();
             const hasVisibleContent = currentVisibleTasks.length > 0 || currentAllTasks.length > 0;
             
             // 保存当前滚动位置
@@ -6278,8 +6267,11 @@
                         // 检查任务元素是否被重新用于不同的任务
                         const currentTaskId = taskEl.dataset.taskId;
                         if (currentTaskId !== task.id) {
-                            // 如果任务ID不同，直接创建新元素并替换，避免中间状态闪烁
-                            // 不要先清除背景图，直接替换整个元素
+                            // 如果任务ID不同，更新元素的任务ID并重新设置背景图
+                            taskEl.dataset.taskId = task.id;
+                            // 重置背景图，让createTaskElement重新生成
+
+                            // 重新创建任务元素，确保所有内容都正确更新
                             const newTaskEl = createTaskElement(task);
                             taskCarousel.replaceChild(newTaskEl, taskEl);
                         } else {
@@ -6315,13 +6307,15 @@
             }
             
             updateAllTasksList();
-            // 修复安卓设备回顶问题：移除adjustContainerSize调用，避免频繁修改容器样式
-            // adjustContainerSize(hasVisibleContent);
+            // 恢复adjustContainerSize调用，但优化为只在非移动设备上执行
+            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!isMobile) {
+                adjustContainerSize(hasVisibleContent);
+            }
             updateSpecialNotification(); // 更新特殊通知
             
             // 优化：只有当用户没有主动滚动且不是移动设备时才恢复滚动位置
             // 修复安卓设备模拟器的回顶现象
-            const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (!userIsScrolling && !isMobile) {
                 setTimeout(() => {
                     const currentScroll = window.scrollY || document.documentElement.scrollTop;
@@ -7384,7 +7378,7 @@
                 
                 const now = new Date();
                 const dateStr = now.toISOString().split('T')[0];
-                a.download = `光·遇 事件 时间_${dateStr}.html`;
+                a.download = `Sky 事件 时间_${dateStr}.html`;
                 
                 a.href = url;
                 document.body.appendChild(a);
@@ -8062,25 +8056,9 @@
                     });
                 }
                 
-                // 检测Id21事件（迁徙季）是否在有效时间内
-                const id21Event = tasks.find(task => task.id === 21);
-                let isId21Active = false;
-                
-                if (id21Event) {
-                    // 计算事件Id21的有效期
-                    const startTime = new Date(`${id21Event.startDate}T${id21Event.startTime}`);
-                    const durationMs = convertToMilliseconds(id21Event.recurrence.duration, id21Event.recurrence.durationUnit);
-                    const endTime = new Date(startTime.getTime() + durationMs);
-                    
-                    // 检查当前时间是否在事件有效期内
-                    isId21Active = now >= startTime && now < endTime;
-                }
-                
-                // 只有当Id21事件有效时才显示季蜡位置图标
-                const currentDate = new Date();
-                if (isId21Active) {
-                    // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+                // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
                 const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
+                const currentDate = new Date();
                 
                 // 计算2025年11月27日应该显示霞谷（索引2）
                 // 计算当天是一年中的第几天
@@ -8115,7 +8093,6 @@
                 
                 // 直接添加到容器
                 container.appendChild(seasonWaxElement);
-                }
                 
                 // 添加大蜡图标 - 每天切换不同地图组合
                 // 正确策略：周一到周日的大蜡位置
@@ -8657,7 +8634,7 @@
                 
                 // 确定图标和名称
                 const iconName = eventType === 'redstone' ? 'hong' : 'hei';
-                const eventName = eventType === 'redstone' ? '🔴红石' : '黑石';
+                const eventName = eventType === 'redstone' ? '红石' : '黑石';
                 
                 // 创建图标元素
                 const iconElement = document.createElement('div');
