@@ -8056,9 +8056,27 @@
                     });
                 }
                 
-                // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
-                const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
+                // 定义currentDate变量，供后续大蜡图标计算使用
                 const currentDate = new Date();
+                
+                // 检测Id21事件（迁徙季）是否在有效时间内
+                const id21Event = tasks.find(task => task.id === 21);
+                let isId21Active = false;
+                
+                if (id21Event) {
+                    // 计算事件Id21的有效期
+                    const startTime = new Date(`${id21Event.startDate}T${id21Event.startTime}`);
+                    const durationMs = convertToMilliseconds(id21Event.recurrence.duration, id21Event.recurrence.durationUnit);
+                    const endTime = new Date(startTime.getTime() + durationMs);
+                    
+                    // 检查当前时间是否在事件有效期内
+                    isId21Active = now >= startTime && now < endTime;
+                }
+                
+                // 只有当Id21事件有效时才显示季蜡位置图标
+                if (isId21Active) {
+                    // 添加季蜡图标 - 每天切换一个地图，顺序：云野, 雨林, 霞谷, 暮土, 禁阁
+                const seasonWaxMaps = ['云野', '雨林', '霞谷', '暮土', '禁阁'];
                 
                 // 计算2025年11月27日应该显示霞谷（索引2）
                 // 计算当天是一年中的第几天
@@ -8093,6 +8111,7 @@
                 
                 // 直接添加到容器
                 container.appendChild(seasonWaxElement);
+                }
                 
                 // 添加大蜡图标 - 每天切换不同地图组合
                 // 正确策略：周一到周日的大蜡位置
@@ -8573,7 +8592,7 @@
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             
             // 最多查找未来7天的事件
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i <= 7; i++) {
                 const checkDate = new Date(today);
                 checkDate.setDate(today.getDate() + i);
                 const dayOfWeek = checkDate.getDay();
