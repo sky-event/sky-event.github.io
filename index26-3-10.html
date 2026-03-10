@@ -2162,11 +2162,11 @@
             
             // 太平洋时间到北京时间的转换
             PDTtoCST(pdtDate) {
-                // 根据是否处于PDT期间使用不同的偏移量
-                // PDT (UTC-7) → CST (UTC+8) = +15小时
+                // 固定使用+16小时偏移量，因为12月是冬令时（PST）
                 // PST (UTC-8) → CST (UTC+8) = +16小时
                 // 注意：pdtDate是一个Date对象，其内部存储的是UTC时间
-                const offsetHours = this.isPDT(pdtDate) ? 15 : 16;
+                // 我们需要将太平洋时间转换为北京时间，所以需要添加16小时
+                const offsetHours = 16;
                 return new Date(pdtDate.getTime() + offsetHours * 60 * 60 * 1000);
             },
             
